@@ -17,6 +17,9 @@ local.db-*
 .env
 .env*.local
 
+# Cursor / local MCP (may contain API keys)
+.cursor/
+
 # IDEs and editors
 .vscode/*
 !.vscode/settings.json

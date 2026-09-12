@@ -18,7 +18,9 @@
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
+    "@supabase/supabase-js": "^2.116.0",
     "dotenv": "catalog:",
+    "drizzle-orm": "^0.45.2",
     "next": "catalog:",
     "zod": "catalog:"
   },

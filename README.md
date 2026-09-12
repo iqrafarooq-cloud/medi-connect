@@ -46,6 +46,37 @@ pnpm run dev
 Open [http://localhost:3001](http://localhost:3001) in your browser to see the fullstack application.
 Use the Expo Go app to run the mobile application.
 
+## MediConnect clinic portal
+
+Clinic/hospital web app (patients do not sign in here):
+
+- `/register` — multi-step facility onboarding + license uploads
+- `/login` — clinic sign-in
+- `/dashboard`, `/triage`, `/assistant` — responsive stub UIs
+- `/patients`, `/patients/new` — global CNIC patient registry (wired)
+
+### Supabase Storage
+
+Create two **private** buckets in your Supabase project:
+
+1. `clinic-documents` — paths `clinics/{clinicId}/{docType}/…`
+2. `patients` — paths `patients/{patientId}/reports|prescriptions|labs|imaging|other/…`
+
+Add to `apps/web/.env` (see `.env.example`):
+
+```
+SUPABASE_URL=…
+SUPABASE_SERVICE_ROLE_KEY=…
+SUPABASE_CLINIC_BUCKET=clinic-documents
+SUPABASE_PATIENT_BUCKET=patients
+```
+
+Then push schema:
+
+```bash
+pnpm run db:push
+```
+
 ## UI Customization
 
 React web apps in this stack share shadcn/ui primitives through `packages/ui`.

@@ -18,7 +18,7 @@ provider: "pg",
 			schema: schema,
 		}),
 		trustedOrigins: [
-			env.BETTER_AUTH_URL
+			env.BETTER_AUTH_URL,
 			"medi-connect://",
 			"exp://",
 			"http://localhost:8081",
