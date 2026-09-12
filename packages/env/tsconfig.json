@@ -1,0 +1,3 @@
+{
+  "extends": "@medi-connect/config/tsconfig.base.json"
+}

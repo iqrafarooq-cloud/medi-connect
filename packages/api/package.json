@@ -1,0 +1,29 @@
+{
+  "name": "@medi-connect/api",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@medi-connect/auth": "workspace:*",
+    "@medi-connect/db": "workspace:*",
+    "@medi-connect/env": "workspace:*",
+    "@orpc/client": "catalog:",
+    "@orpc/openapi": "catalog:",
+    "@orpc/server": "catalog:",
+    "@orpc/zod": "catalog:",
+    "dotenv": "catalog:",
+    "next": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@medi-connect/config": "workspace:*",
+    "typescript": "^6.0.3"
+  }
+}

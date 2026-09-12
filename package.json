@@ -1,0 +1,32 @@
+{
+  "name": "medi-connect",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "check-types": "turbo run check-types",
+    "dev:native": "turbo run dev -F native --",
+    "dev:web": "turbo run dev -F web --",
+    "db:push": "turbo run db:push -F @medi-connect/db --",
+    "db:studio": "turbo run db:studio -F @medi-connect/db --",
+    "db:generate": "turbo run db:generate -F @medi-connect/db --",
+    "db:migrate": "turbo run db:migrate -F @medi-connect/db --"
+  },
+  "dependencies": {
+    "@medi-connect/env": "workspace:*",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@medi-connect/config": "workspace:*",
+    "@types/node": "catalog:",
+    "turbo": "^2.10.12",
+    "typescript": "^6.0.3"
+  },
+  "packageManager": "pnpm@12.4.1"
+}
