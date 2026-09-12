@@ -1,23 +1,23 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 
 import "../index.css";
-import Header from "@/components/header";
 import Providers from "@/components/providers";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const heading = Plus_Jakarta_Sans({
+  variable: "--font-heading",
   subsets: ["latin"],
+  weight: ["500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const body = Inter({
+  variable: "--font-body",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "medi-connect",
-  description: "medi-connect",
+  title: "MediConnect",
+  description: "Clinic and hospital triage portal for Pakistan",
 };
 
 export default function RootLayout({
@@ -27,13 +27,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <Providers>
-          <div className="grid grid-rows-[auto_1fr] h-svh">
-            <Header />
-            {children}
-          </div>
-        </Providers>
+      <body className={`${heading.variable} ${body.variable} antialiased`}>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

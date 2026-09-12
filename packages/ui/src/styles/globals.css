@@ -6,77 +6,79 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* MediConnect — Calm Humanist Clinical (Stitch) */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.58 0.22 27);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #f0fcf7;
+  --foreground: #131e1b;
+  --card: #ffffff;
+  --card-foreground: #131e1b;
+  --popover: #ffffff;
+  --popover-foreground: #131e1b;
+  --primary: #0e6251;
+  --primary-foreground: #ffffff;
+  --secondary: #b2edf2;
+  --secondary-foreground: #002022;
+  --muted: #e5f1eb;
+  --muted-foreground: #3f4945;
+  --accent: #ebf6f1;
+  --accent-foreground: #00493b;
+  --destructive: #ba1a1a;
+  --border: #bec9c4;
+  --input: #bec9c4;
+  --ring: #1b6a59;
+  --chart-1: #0e6251;
+  --chart-2: #2c676c;
+  --chart-3: #005b8b;
+  --chart-4: #8bd5bf;
+  --chart-5: #97d0d6;
+  --radius: 0.5rem;
+  --sidebar: #ebf6f1;
+  --sidebar-foreground: #131e1b;
+  --sidebar-primary: #0e6251;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e5f1eb;
+  --sidebar-accent-foreground: #00493b;
+  --sidebar-border: #bec9c4;
+  --sidebar-ring: #1b6a59;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.87 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.371 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #0c1411;
+  --foreground: #e8f3ee;
+  --card: #15201c;
+  --card-foreground: #e8f3ee;
+  --popover: #15201c;
+  --popover-foreground: #e8f3ee;
+  --primary: #8bd5bf;
+  --primary-foreground: #002019;
+  --secondary: #1a3538;
+  --secondary-foreground: #b2edf2;
+  --muted: #1a2420;
+  --muted-foreground: #bec9c4;
+  --accent: #1a2420;
+  --accent-foreground: #a7f1db;
+  --destructive: #ffb4ab;
+  --border: #2a3531;
+  --input: #2a3531;
+  --ring: #8bd5bf;
+  --chart-1: #8bd5bf;
+  --chart-2: #97d0d6;
+  --chart-3: #9fd1ff;
+  --chart-4: #0e6251;
+  --chart-5: #2c676c;
+  --sidebar: #15201c;
+  --sidebar-foreground: #e8f3ee;
+  --sidebar-primary: #8bd5bf;
+  --sidebar-primary-foreground: #002019;
+  --sidebar-accent: #1a2420;
+  --sidebar-accent-foreground: #a7f1db;
+  --sidebar-border: #2a3531;
+  --sidebar-ring: #8bd5bf;
 }
 
 @theme inline {
-  --font-sans: "Inter Variable", sans-serif;
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -122,9 +124,15 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply font-sans bg-background text-foreground;
+    @apply bg-background font-sans text-foreground antialiased;
   }
   html {
     @apply font-sans;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
   }
 }

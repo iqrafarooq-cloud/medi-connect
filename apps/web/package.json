@@ -11,6 +11,7 @@
   "dependencies": {
     "@medi-connect/api": "workspace:*",
     "@medi-connect/auth": "workspace:*",
+    "@medi-connect/db": "workspace:*",
     "@medi-connect/env": "workspace:*",
     "@medi-connect/ui": "workspace:*",
     "@orpc/client": "catalog:",
@@ -24,6 +25,7 @@
     "babel-plugin-react-compiler": "^1.0.0",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
+    "drizzle-orm": "^0.45.2",
     "lucide-react": "catalog:",
     "next": "catalog:",
     "next-themes": "catalog:",
