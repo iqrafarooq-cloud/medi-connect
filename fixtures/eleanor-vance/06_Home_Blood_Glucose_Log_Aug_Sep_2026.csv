@@ -1,0 +1,59 @@
+Date,Time_of_Day,Glucose_mg_dL,Medication_Taken,Notes
+2026-08-15,Fasting (AM),124,Yes,Pre-breakfast
+2026-08-15,Post-Prandial (PM),141,Yes,2 hrs post-dinner
+2026-08-16,Fasting (AM),112,Yes,Pre-breakfast
+2026-08-16,Post-Prandial (PM),148,Yes,2 hrs post-dinner
+2026-08-17,Fasting (AM),126,Yes,Pre-breakfast
+2026-08-17,Post-Prandial (PM),166,Yes,2 hrs post-dinner
+2026-08-18,Fasting (AM),130,Yes,Pre-breakfast
+2026-08-18,Post-Prandial (PM),141,Yes,2 hrs post-dinner
+2026-08-19,Fasting (AM),115,Yes,Pre-breakfast
+2026-08-19,Post-Prandial (PM),139,Yes,2 hrs post-dinner
+2026-08-20,Fasting (AM),109,Yes,Pre-breakfast
+2026-08-20,Post-Prandial (PM),157,Yes,2 hrs post-dinner
+2026-08-21,Fasting (AM),102,Yes,Pre-breakfast
+2026-08-21,Post-Prandial (PM),144,Yes,2 hrs post-dinner
+2026-08-22,Fasting (AM),120,Yes,Pre-breakfast
+2026-08-22,Post-Prandial (PM),158,Yes,2 hrs post-dinner
+2026-08-23,Fasting (AM),107,Yes,Pre-breakfast
+2026-08-23,Post-Prandial (PM),159,Yes,2 hrs post-dinner
+2026-08-24,Fasting (AM),124,Yes,Pre-breakfast
+2026-08-24,Post-Prandial (PM),135,Yes,2 hrs post-dinner
+2026-08-25,Fasting (AM),124,Yes,Pre-breakfast
+2026-08-25,Post-Prandial (PM),162,Yes,2 hrs post-dinner
+2026-08-26,Fasting (AM),109,Yes,Pre-breakfast
+2026-08-26,Post-Prandial (PM),140,Yes,2 hrs post-dinner
+2026-08-27,Fasting (AM),127,Yes,Pre-breakfast
+2026-08-27,Post-Prandial (PM),147,Yes,2 hrs post-dinner
+2026-08-28,Fasting (AM),101,Yes,Pre-breakfast
+2026-08-28,Post-Prandial (PM),137,Yes,2 hrs post-dinner
+2026-08-29,Fasting (AM),123,Yes,Pre-breakfast
+2026-08-29,Post-Prandial (PM),157,Yes,2 hrs post-dinner
+2026-08-30,Fasting (AM),121,Yes,Pre-breakfast
+2026-08-30,Post-Prandial (PM),161,Yes,2 hrs post-dinner
+2026-08-31,Fasting (AM),113,Yes,Pre-breakfast
+2026-08-31,Post-Prandial (PM),170,Yes,2 hrs post-dinner
+2026-09-01,Fasting (AM),107,Yes,Pre-breakfast
+2026-09-01,Post-Prandial (PM),153,Yes,2 hrs post-dinner
+2026-09-02,Fasting (AM),120,Yes,Pre-breakfast
+2026-09-02,Post-Prandial (PM),155,Yes,2 hrs post-dinner
+2026-09-03,Fasting (AM),121,Yes,Pre-breakfast
+2026-09-03,Post-Prandial (PM),153,Yes,2 hrs post-dinner
+2026-09-04,Fasting (AM),116,Yes,Pre-breakfast
+2026-09-04,Post-Prandial (PM),131,Yes,2 hrs post-dinner
+2026-09-05,Fasting (AM),101,Yes,Pre-breakfast
+2026-09-05,Post-Prandial (PM),141,Yes,2 hrs post-dinner
+2026-09-06,Fasting (AM),96,Yes,Pre-breakfast
+2026-09-06,Post-Prandial (PM),138,Yes,2 hrs post-dinner
+2026-09-07,Fasting (AM),96,Yes,Pre-breakfast
+2026-09-07,Post-Prandial (PM),139,Yes,2 hrs post-dinner
+2026-09-08,Fasting (AM),112,Yes,Pre-breakfast
+2026-09-08,Post-Prandial (PM),142,Yes,2 hrs post-dinner
+2026-09-09,Fasting (AM),103,Yes,Pre-breakfast
+2026-09-09,Post-Prandial (PM),135,Yes,2 hrs post-dinner
+2026-09-10,Fasting (AM),100,Yes,Pre-breakfast
+2026-09-10,Post-Prandial (PM),164,Yes,2 hrs post-dinner
+2026-09-11,Fasting (AM),110,Yes,Pre-breakfast
+2026-09-11,Post-Prandial (PM),150,Yes,2 hrs post-dinner
+2026-09-12,Fasting (AM),96,Yes,Pre-breakfast
+2026-09-12,Post-Prandial (PM),155,Yes,2 hrs post-dinner

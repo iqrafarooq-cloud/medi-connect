@@ -2,18 +2,35 @@ import { auth } from "@medi-connect/auth";
 import { createDb } from "@medi-connect/db";
 import { clinic } from "@medi-connect/db/schema/clinic";
 import { patient, patientFile } from "@medi-connect/db/schema/patient";
+import { clinicalDocument } from "@medi-connect/db/schema/clinical";
 import {
   ALLOWED_UPLOAD_MIME,
   MAX_UPLOAD_BYTES,
+  downloadObject,
   patientBucket,
   safeFileName,
   uploadObject,
 } from "@medi-connect/api/lib/supabase";
+import { ingestDocumentById } from "@medi-connect/ai";
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
-const CATEGORIES = new Set(["report", "prescription", "lab", "imaging", "other"]);
+const CATEGORIES = new Set(["report", "prescription", "lab", "imaging", "other", "home_monitoring"]);
+
+function guessDocumentType(filename: string, category: string, mimeType: string) {
+  const lower = filename.toLowerCase();
+  if (mimeType.includes("csv") || lower.endsWith(".csv")) return "home_monitoring_log" as const;
+  if (category === "lab") return "lab_panel" as const;
+  if (category === "imaging") return "radiology_report" as const;
+  if (lower.includes("ophthal") || lower.includes("retina") || lower.includes("eye"))
+    return "eye_exam" as const;
+  if (lower.includes("pulm") || lower.includes("progress")) return "progress_note" as const;
+  if (lower.includes("nephro") || lower.includes("consult")) return "specialist_consult" as const;
+  if (lower.includes("soap") || lower.includes("primary")) return "soap_note" as const;
+  return "other" as const;
+}
 
 export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -35,8 +52,17 @@ export async function POST(request: Request) {
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "file is required" }, { status: 400 });
   }
-  if (!ALLOWED_UPLOAD_MIME.has(file.type)) {
-    return NextResponse.json({ error: "Only PDF, JPG, and PNG allowed" }, { status: 400 });
+
+  const mimeType =
+    file.type ||
+    (file.name.toLowerCase().endsWith(".csv") ? "text/csv" : "") ||
+    (file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "");
+
+  if (!ALLOWED_UPLOAD_MIME.has(mimeType)) {
+    return NextResponse.json(
+      { error: "Only PDF, JPG, PNG, and CSV allowed" },
+      { status: 400 },
+    );
   }
   if (file.size > MAX_UPLOAD_BYTES) {
     return NextResponse.json({ error: "File must be under 10MB" }, { status: 400 });
@@ -65,9 +91,11 @@ export async function POST(request: Request) {
         ? "labs"
         : category === "imaging"
           ? "imaging"
-          : category === "other"
-            ? "other"
-            : "reports";
+          : category === "home_monitoring"
+            ? "home-monitoring"
+            : category === "other"
+              ? "other"
+              : "reports";
 
   const bucket = patientBucket();
   const path = `patients/${patientId}/${folder}/${crypto.randomUUID()}-${safeFileName(file.name)}`;
@@ -78,18 +106,18 @@ export async function POST(request: Request) {
       bucket,
       path,
       body: buffer,
-      contentType: file.type,
+      contentType: mimeType,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Upload failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 
-  const id = crypto.randomUUID();
+  const fileId = crypto.randomUUID();
   const [saved] = await db
     .insert(patientFile)
     .values({
-      id,
+      id: fileId,
       patientId,
       uploadedByClinicId: facility.id,
       uploadedByUserId: session.user.id,
@@ -97,10 +125,34 @@ export async function POST(request: Request) {
       bucket,
       storagePath: path,
       fileName: file.name,
-      mimeType: file.type,
+      mimeType,
       sizeBytes: file.size,
     })
     .returning();
 
-  return NextResponse.json({ file: saved });
+  const documentId = crypto.randomUUID();
+  const [doc] = await db
+    .insert(clinicalDocument)
+    .values({
+      id: documentId,
+      patientId,
+      patientFileId: fileId,
+      type: guessDocumentType(file.name, category, mimeType),
+      originalFilename: file.name,
+      storageBucket: bucket,
+      storagePath: path,
+      mimeType,
+      ingestionStatus: "pending",
+    })
+    .returning();
+
+  after(async () => {
+    try {
+      await ingestDocumentById(documentId, downloadObject);
+    } catch (error) {
+      console.error("[ingest]", documentId, error);
+    }
+  });
+
+  return NextResponse.json({ file: saved, document: doc });
 }

@@ -9,6 +9,8 @@
     "start": "next start"
   },
   "dependencies": {
+    "@ai-sdk/react": "^4.0.102",
+    "@medi-connect/ai": "workspace:*",
     "@medi-connect/api": "workspace:*",
     "@medi-connect/auth": "workspace:*",
     "@medi-connect/db": "workspace:*",
@@ -22,6 +24,7 @@
     "@swc/helpers": "^0.5.23",
     "@tanstack/react-form": "catalog:",
     "@tanstack/react-query": "catalog:",
+    "ai": "^7.0.99",
     "babel-plugin-react-compiler": "^1.0.0",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
@@ -31,6 +34,8 @@
     "next-themes": "catalog:",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "sonner": "catalog:",
     "zod": "catalog:"
   },

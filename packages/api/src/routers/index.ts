@@ -2,6 +2,7 @@ import type { RouterClient } from "@orpc/server";
 
 import { protectedProcedure, publicProcedure } from "../index";
 import { clinicRouter } from "./clinic";
+import { clinicalRouter } from "./clinical";
 import { patientRouter } from "./patient";
 
 export const appRouter = {
@@ -16,6 +17,7 @@ export const appRouter = {
   }),
   clinic: clinicRouter,
   patient: patientRouter,
+  clinical: clinicalRouter,
 };
 export type AppRouter = typeof appRouter;
 export type AppRouterClient = RouterClient<typeof appRouter>;

@@ -7,15 +7,17 @@
   ],
   "type": "module",
   "scripts": {
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "check-types": "turbo run check-types",
-    "dev:native": "turbo run dev -F native --",
-    "dev:web": "turbo run dev -F web --",
-    "db:push": "turbo run db:push -F @medi-connect/db --",
-    "db:studio": "turbo run db:studio -F @medi-connect/db --",
-    "db:generate": "turbo run db:generate -F @medi-connect/db --",
-    "db:migrate": "turbo run db:migrate -F @medi-connect/db --"
+    "dev": "pnpm --parallel --filter web --filter native dev",
+    "build": "pnpm --filter web build",
+    "check-types": "pnpm -r --if-present check-types",
+    "dev:native": "pnpm --filter native -- dev",
+    "dev:web": "pnpm --filter web dev",
+    "db:push": "pnpm --filter @medi-connect/db db:push",
+    "db:studio": "pnpm --filter @medi-connect/db db:studio",
+    "db:generate": "pnpm --filter @medi-connect/db db:generate",
+    "db:migrate": "pnpm --filter @medi-connect/db db:migrate",
+    "db:enable-pgvector": "pnpm --filter @medi-connect/db db:enable-pgvector",
+    "seed:eleanor": "pnpm --filter @medi-connect/ai seed:eleanor"
   },
   "dependencies": {
     "@medi-connect/env": "workspace:*",
