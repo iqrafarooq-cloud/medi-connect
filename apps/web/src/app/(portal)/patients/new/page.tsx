@@ -1,24 +1,24 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { toast } from "sonner";
+import Link from"next/link";
+import { useRouter } from"next/navigation";
+import { useState } from"react";
+import { toast } from"sonner";
 
-import { Button } from "@medi-connect/ui/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@medi-connect/ui/components/card";
-import { Input } from "@medi-connect/ui/components/input";
-import { Label } from "@medi-connect/ui/components/label";
+import { Button } from"@medi-connect/ui/components/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from"@medi-connect/ui/components/card";
+import { Input } from"@medi-connect/ui/components/input";
+import { Label } from"@medi-connect/ui/components/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@medi-connect/ui/components/select";
-import { Textarea } from "@medi-connect/ui/components/textarea";
+} from"@medi-connect/ui/components/select";
+import { Textarea } from"@medi-connect/ui/components/textarea";
 
-import { client } from "@/utils/orpc";
+import { client } from"@/utils/orpc";
 
 export default function NewPatientPage() {
   const router = useRouter();
@@ -28,7 +28,7 @@ export default function NewPatientPage() {
   );
   const [fullName, setFullName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
-  const [gender, setGender] = useState<"male" | "female" | "other">("male");
+  const [gender, setGender] = useState<"male" |"female" |"other">("male");
   const [bloodType, setBloodType] = useState("");
   const [phone, setPhone] = useState("");
   const [emergencyContactName, setEmergencyContactName] = useState("");
@@ -49,7 +49,7 @@ export default function NewPatientPage() {
         toast.success("CNIC available — create a new global record");
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Lookup failed");
+      toast.error(error instanceof Error ? error.message :"Lookup failed");
     }
   }
 
@@ -77,22 +77,22 @@ export default function NewPatientPage() {
         const body = new FormData();
         body.append("file", file);
         body.append("patientId", result.patient.id);
-        body.append("category", "report");
+        body.append("category","report");
         const res = await fetch("/api/uploads/patient-file", {
-          method: "POST",
+          method:"POST",
           body,
-          credentials: "include",
+          credentials:"include",
         });
         if (!res.ok) {
           const data = (await res.json().catch(() => null)) as { error?: string } | null;
-          toast.error(data?.error || "Patient saved, but file upload failed");
+          toast.error(data?.error ||"Patient saved, but file upload failed");
         }
       }
 
-      toast.success(result.created ? "Patient registered globally" : "Opened existing patient");
+      toast.success(result.created ?"Patient registered globally" :"Opened existing patient");
       router.push(`/patients/${result.patient.id}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not register patient");
+      toast.error(error instanceof Error ? error.message :"Could not register patient");
       setLoading(false);
     }
   }
@@ -109,7 +109,7 @@ export default function NewPatientPage() {
         </p>
       </div>
 
-      <Card className="rounded-2xl border-none ring-1 ring-border/60 shadow-none">
+      <Card className="">
         <CardHeader className="space-y-2 px-6 pt-8 sm:px-8">
           <CardTitle className="text-lg">CNIC lookup</CardTitle>
           <CardDescription>13-digit national identity number</CardDescription>
@@ -132,7 +132,7 @@ export default function NewPatientPage() {
           </div>
           {existing ? (
             <div className="rounded-xl bg-secondary/50 p-4 text-sm">
-              Found <strong>{existing.fullName}</strong> ({existing.cnic}).{" "}
+              Found <strong>{existing.fullName}</strong> ({existing.cnic}).{""}
               <Link href={`/patients/${existing.id}`} className="font-medium text-primary underline">
                 Open record
               </Link>
@@ -141,7 +141,7 @@ export default function NewPatientPage() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-2xl border-none ring-1 ring-border/60 shadow-none">
+      <Card className="">
         <CardHeader className="px-6 pt-8 sm:px-8">
           <CardTitle className="text-lg">New patient details</CardTitle>
         </CardHeader>
@@ -174,9 +174,7 @@ export default function NewPatientPage() {
               <Label>Gender</Label>
               <Select
                 value={gender}
-                onValueChange={(v) => {
-                  if (v === "male" || v === "female" || v === "other") setGender(v);
-                }}
+                onValueChange={(v:"male" |"female" |"other") => setGender(v)}
                 disabled={!!existing}
               >
                 <SelectTrigger className="h-12 w-full">
@@ -255,10 +253,10 @@ export default function NewPatientPage() {
             <div className="sm:col-span-2">
               <Button type="submit" className="h-12 w-full sm:w-auto sm:px-8" disabled={loading}>
                 {existing
-                  ? "Open existing patient"
+                  ?"Open existing patient"
                   : loading
-                    ? "Saving…"
-                    : "Create global patient"}
+                    ?"Saving…"
+                    :"Create global patient"}
               </Button>
             </div>
           </form>

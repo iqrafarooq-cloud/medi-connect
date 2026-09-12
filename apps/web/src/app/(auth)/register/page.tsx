@@ -1,29 +1,29 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { toast } from "sonner";
+import Link from"next/link";
+import { useRouter } from"next/navigation";
+import { useState } from"react";
+import { toast } from"sonner";
 
-import { Button } from "@medi-connect/ui/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@medi-connect/ui/components/card";
-import { Input } from "@medi-connect/ui/components/input";
-import { Label } from "@medi-connect/ui/components/label";
-import { Progress } from "@medi-connect/ui/components/progress";
+import { Button } from"@medi-connect/ui/components/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from"@medi-connect/ui/components/card";
+import { Input } from"@medi-connect/ui/components/input";
+import { Label } from"@medi-connect/ui/components/label";
+import { Progress } from"@medi-connect/ui/components/progress";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@medi-connect/ui/components/select";
+} from"@medi-connect/ui/components/select";
 
-import { authClient } from "@/lib/auth-client";
-import { client } from "@/utils/orpc";
+import { authClient } from"@/lib/auth-client";
+import { client } from"@/utils/orpc";
 
 type FormState = {
   name: string;
-  type: "clinic" | "hospital";
+  type:"clinic" |"hospital";
   address: string;
   city: string;
   ownerName: string;
@@ -34,15 +34,15 @@ type FormState = {
 };
 
 const empty: FormState = {
-  name: "",
-  type: "clinic",
-  address: "",
-  city: "",
-  ownerName: "",
-  email: "",
-  password: "",
-  phone: "",
-  licenseNumber: "",
+  name:"",
+  type:"clinic",
+  address:"",
+  city:"",
+  ownerName:"",
+  email:"",
+  password:"",
+  phone:"",
+  licenseNumber:"",
 };
 
 export default function RegisterPage() {
@@ -69,7 +69,7 @@ export default function RegisterPage() {
         name: form.ownerName,
       });
       if (signUp.error) {
-        throw new Error(signUp.error.message || "Could not create account");
+        throw new Error(signUp.error.message ||"Could not create account");
       }
 
       await client.clinic.registerProfile({
@@ -85,28 +85,28 @@ export default function RegisterPage() {
       for (const file of Array.from(files)) {
         const body = new FormData();
         body.append("file", file);
-        body.append("docType", "medical_license");
+        body.append("docType","medical_license");
         const res = await fetch("/api/uploads/clinic-document", {
-          method: "POST",
+          method:"POST",
           body,
-          credentials: "include",
+          credentials:"include",
         });
         if (!res.ok) {
           const data = (await res.json().catch(() => null)) as { error?: string } | null;
-          throw new Error(data?.error || "Document upload failed");
+          throw new Error(data?.error ||"Document upload failed");
         }
       }
 
       toast.success("Clinic registered — pending verification");
       router.push("/dashboard");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Registration failed");
+      toast.error(error instanceof Error ? error.message :"Registration failed");
       setLoading(false);
     }
   }
 
   return (
-    <Card className="w-full max-w-2xl border-border/70 bg-card/90 shadow-none">
+    <Card className="w-full max-w-2xl">
       <CardHeader className="space-y-4 px-8 pt-10">
         <div className="space-y-2">
           <p className="text-sm font-medium text-primary">Step {step} of 4</p>
@@ -136,12 +136,7 @@ export default function RegisterPage() {
             </div>
             <div className="space-y-2.5">
               <Label>Facility type</Label>
-              <Select
-                value={form.type}
-                onValueChange={(v) => {
-                  if (v === "clinic" || v === "hospital") update("type", v);
-                }}
-              >
+              <Select value={form.type} onValueChange={(v:"clinic" |"hospital") => update("type", v)}>
                 <SelectTrigger className="h-12 w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -297,7 +292,7 @@ export default function RegisterPage() {
             </Button>
           ) : (
             <Button type="button" className="h-11" disabled={loading} onClick={submit}>
-              {loading ? "Submitting…" : "Create facility account"}
+              {loading ?"Submitting…" :"Create facility account"}
             </Button>
           )}
         </div>

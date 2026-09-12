@@ -1,19 +1,19 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { useParams } from"next/navigation";
+import { useEffect, useState } from"react";
+import { toast } from"sonner";
 
-import { Badge } from "@medi-connect/ui/components/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@medi-connect/ui/components/card";
-import { Separator } from "@medi-connect/ui/components/separator";
+import { Badge } from"@medi-connect/ui/components/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from"@medi-connect/ui/components/card";
+import { Separator } from"@medi-connect/ui/components/separator";
 
-import { client } from "@/utils/orpc";
+import { client } from"@/utils/orpc";
 
 const mockTimeline = [
-  { when: "12 Sep 2026", title: "ER intake — chest pain", detail: "Stub visit at City Hospital Lahore" },
-  { when: "03 Mar 2025", title: "Lab panel", detail: "CBC + troponin (stub)" },
-  { when: "18 Nov 2024", title: "Prescription", detail: "Atorvastatin 20mg (stub)" },
+  { when:"12 Sep 2026", title:"ER intake — chest pain", detail:"Stub visit at City Hospital Lahore" },
+  { when:"03 Mar 2025", title:"Lab panel", detail:"CBC + troponin (stub)" },
+  { when:"18 Nov 2024", title:"Prescription", detail:"Atorvastatin 20mg (stub)" },
 ];
 
 export default function PatientRecordPage() {
@@ -34,7 +34,7 @@ export default function PatientRecordPage() {
         const row = await client.patient.get({ id: params.id });
         if (!cancelled) setPatient(row);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Could not load patient");
+        toast.error(error instanceof Error ? error.message :"Could not load patient");
       }
     })();
     return () => {
@@ -47,17 +47,17 @@ export default function PatientRecordPage() {
       <div className="space-y-3">
         <Badge variant="secondary">Longitudinal record · UI stub timeline</Badge>
         <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-          {patient?.fullName ?? "Loading patient…"}
+          {patient?.fullName ??"Loading patient…"}
         </h1>
         <p className="text-muted-foreground">
-          CNIC {patient?.cnic ?? "—"} · {patient?.gender ?? "—"} · DOB {patient?.dateOfBirth ?? "—"}
-          {patient?.bloodType ? ` · Blood ${patient.bloodType}` : ""}
-          {patient?.phone ? ` · ${patient.phone}` : ""}
+          CNIC {patient?.cnic ??"—"} · {patient?.gender ??"—"} · DOB {patient?.dateOfBirth ??"—"}
+          {patient?.bloodType ? ` · Blood ${patient.bloodType}` :""}
+          {patient?.phone ? ` · ${patient.phone}` :""}
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <Card className="rounded-2xl border-none ring-1 ring-border/60 shadow-none">
+        <Card className="">
           <CardHeader className="space-y-2 px-6 pt-8 sm:px-8">
             <CardTitle className="font-heading text-xl">Clinical timeline</CardTitle>
             <CardDescription>
@@ -80,7 +80,7 @@ export default function PatientRecordPage() {
           </CardContent>
         </Card>
 
-        <Card className="h-fit rounded-2xl border-none ring-1 ring-border/60 shadow-none">
+        <Card className="h-fit">
           <CardHeader className="px-6 pt-8">
             <CardTitle className="text-lg">Shared network</CardTitle>
           </CardHeader>

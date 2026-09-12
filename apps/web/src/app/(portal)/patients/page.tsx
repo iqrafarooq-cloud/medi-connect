@@ -1,15 +1,15 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
-import { toast } from "sonner";
+import Link from"next/link";
+import { useState } from"react";
+import { toast } from"sonner";
 
-import { Button } from "@medi-connect/ui/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@medi-connect/ui/components/card";
-import { Input } from "@medi-connect/ui/components/input";
-import { Label } from "@medi-connect/ui/components/label";
+import { Button } from"@medi-connect/ui/components/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from"@medi-connect/ui/components/card";
+import { Input } from"@medi-connect/ui/components/input";
+import { Label } from"@medi-connect/ui/components/label";
 
-import { client } from "@/utils/orpc";
+import { client } from"@/utils/orpc";
 
 type PatientRow = {
   id: string;
@@ -33,7 +33,7 @@ export default function PatientsPage() {
       setResults(rows as PatientRow[]);
       if (!rows.length) toast.message("No patients found in the global registry");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Search failed");
+      toast.error(error instanceof Error ? error.message :"Search failed");
     } finally {
       setLoading(false);
     }
@@ -59,7 +59,7 @@ export default function PatientsPage() {
         </Link>
       </div>
 
-      <Card className="rounded-2xl border-none ring-1 ring-border/60 shadow-none">
+      <Card className="">
         <CardHeader className="space-y-2 px-6 pt-6 sm:px-8">
           <CardTitle className="text-lg">Lookup</CardTitle>
           <CardDescription>Prefer CNIC (13 digits) for an exact match.</CardDescription>
@@ -77,7 +77,7 @@ export default function PatientsPage() {
               />
             </div>
             <Button type="submit" className="h-12 sm:mt-7 sm:w-36" disabled={loading}>
-              {loading ? "Searching…" : "Search"}
+              {loading ?"Searching…" :"Search"}
             </Button>
           </form>
         </CardContent>
@@ -88,12 +88,12 @@ export default function PatientsPage() {
           <Link
             key={p.id}
             href={`/patients/${p.id}`}
-            className="rounded-2xl bg-card p-6 ring-1 ring-border/60 transition hover:ring-primary/40"
+            className="rounded-xl border bg-card p-6 transition hover:border-primary"
           >
             <p className="font-heading text-lg font-semibold">{p.fullName}</p>
             <p className="mt-2 text-sm text-muted-foreground">
               CNIC {p.cnic}
-              {p.phone ? ` · ${p.phone}` : ""}
+              {p.phone ? ` · ${p.phone}` :""}
             </p>
           </Link>
         ))}

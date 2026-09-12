@@ -1,34 +1,34 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@medi-connect/ui/components/card";
-import { Badge } from "@medi-connect/ui/components/badge";
-import { Ambulance, Clock3, MapPin, Phone } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from"@medi-connect/ui/components/card";
+import { Badge } from"@medi-connect/ui/components/badge";
+import { Ambulance, Clock3, MapPin, Phone } from"lucide-react";
 
 const incoming = [
   {
-    id: "1",
-    name: "Ahmed Khan",
-    complaint: "Chest pain · suspected ACS",
-    eta: "6 min",
-    blood: "B+",
-    from: "Model Town, Lahore",
-    priority: "Critical",
+    id:"1",
+    name:"Ahmed Khan",
+    complaint:"Chest pain · suspected ACS",
+    eta:"6 min",
+    blood:"B+",
+    from:"Model Town, Lahore",
+    priority:"Critical",
   },
   {
-    id: "2",
-    name: "Fatima Raza",
-    complaint: "Pediatric fever + dehydration",
-    eta: "14 min",
-    blood: "O+",
-    from: "Gulberg III",
-    priority: "Urgent",
+    id:"2",
+    name:"Fatima Raza",
+    complaint:"Pediatric fever + dehydration",
+    eta:"14 min",
+    blood:"O+",
+    from:"Gulberg III",
+    priority:"Urgent",
   },
   {
-    id: "3",
-    name: "Usman Ali",
-    complaint: "Road traffic injury · stable",
-    eta: "22 min",
-    blood: "A-",
-    from: "Thokar Niaz Baig",
-    priority: "Standard",
+    id:"3",
+    name:"Usman Ali",
+    complaint:"Road traffic injury · stable",
+    eta:"22 min",
+    blood:"A-",
+    from:"Thokar Niaz Baig",
+    priority:"Standard",
   },
 ];
 
@@ -47,11 +47,11 @@ export default function DashboardPage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         {[
-          { label: "En route", value: "3", hint: "Active alerts" },
-          { label: "Avg ETA", value: "14m", hint: "Mock estimate" },
-          { label: "Bay ready", value: "2", hint: "Trauma + peds" },
+          { label:"En route", value:"3", hint:"Active alerts" },
+          { label:"Avg ETA", value:"14m", hint:"Mock estimate" },
+          { label:"Bay ready", value:"2", hint:"Trauma + peds" },
         ].map((stat) => (
-          <Card key={stat.label} className="rounded-2xl border-none bg-card shadow-none ring-1 ring-border/60">
+          <Card key={stat.label} className="">
             <CardHeader className="gap-2 px-6 pt-6">
               <CardDescription className="text-sm">{stat.label}</CardDescription>
               <CardTitle className="font-heading text-3xl">{stat.value}</CardTitle>
@@ -67,13 +67,13 @@ export default function DashboardPage() {
           {incoming.map((item) => (
             <Card
               key={item.id}
-              className="rounded-2xl border-none bg-card shadow-none ring-1 ring-border/60"
+              className=""
             >
               <CardContent className="grid gap-6 px-6 py-6 md:grid-cols-[1fr_auto] md:items-center">
                 <div className="space-y-4">
                   <div className="flex flex-wrap items-center gap-3">
                     <h3 className="font-heading text-xl font-semibold">{item.name}</h3>
-                    <Badge variant={item.priority === "Critical" ? "destructive" : "secondary"}>
+                    <Badge variant={item.priority ==="Critical" ?"destructive" :"secondary"}>
                       {item.priority}
                     </Badge>
                   </div>

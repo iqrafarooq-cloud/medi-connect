@@ -1,11 +1,11 @@
-import { auth } from "@medi-connect/auth";
-import { createDb } from "@medi-connect/db";
-import { clinic } from "@medi-connect/db/schema/clinic";
-import { eq } from "drizzle-orm";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { auth } from"@medi-connect/auth";
+import { createDb } from"@medi-connect/db";
+import { clinic } from"@medi-connect/db/schema/clinic";
+import { eq } from"drizzle-orm";
+import { headers } from"next/headers";
+import { redirect } from"next/navigation";
 
-import { PortalShell } from "@/components/portal/portal-shell";
+import { PortalShell } from"@/components/portal/portal-shell";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({

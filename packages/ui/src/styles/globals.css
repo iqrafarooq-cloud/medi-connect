@@ -1,13 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @source "../../../apps/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 
 @custom-variant dark (&:is(.dark *));
 
-/* MediConnect — Calm Humanist Clinical (Stitch) */
+/* MediConnect — single light theme */
 :root {
+  --radius: 0.625rem;
   --background: #f0fcf7;
   --foreground: #131e1b;
   --card: #ffffff;
@@ -16,118 +16,79 @@
   --popover-foreground: #131e1b;
   --primary: #0e6251;
   --primary-foreground: #ffffff;
-  --secondary: #b2edf2;
-  --secondary-foreground: #002022;
+  --secondary: #e5f1eb;
+  --secondary-foreground: #00493b;
   --muted: #e5f1eb;
   --muted-foreground: #3f4945;
-  --accent: #ebf6f1;
+  --accent: #d8f3ea;
   --accent-foreground: #00493b;
   --destructive: #ba1a1a;
-  --border: #bec9c4;
-  --input: #bec9c4;
-  --ring: #1b6a59;
+  --destructive-foreground: #ffffff;
+  --border: #c5d4cd;
+  --input: #c5d4cd;
+  --ring: #0e6251;
   --chart-1: #0e6251;
   --chart-2: #2c676c;
   --chart-3: #005b8b;
   --chart-4: #8bd5bf;
   --chart-5: #97d0d6;
-  --radius: 0.5rem;
   --sidebar: #ebf6f1;
   --sidebar-foreground: #131e1b;
   --sidebar-primary: #0e6251;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #e5f1eb;
   --sidebar-accent-foreground: #00493b;
-  --sidebar-border: #bec9c4;
-  --sidebar-ring: #1b6a59;
-}
-
-.dark {
-  --background: #0c1411;
-  --foreground: #e8f3ee;
-  --card: #15201c;
-  --card-foreground: #e8f3ee;
-  --popover: #15201c;
-  --popover-foreground: #e8f3ee;
-  --primary: #8bd5bf;
-  --primary-foreground: #002019;
-  --secondary: #1a3538;
-  --secondary-foreground: #b2edf2;
-  --muted: #1a2420;
-  --muted-foreground: #bec9c4;
-  --accent: #1a2420;
-  --accent-foreground: #a7f1db;
-  --destructive: #ffb4ab;
-  --border: #2a3531;
-  --input: #2a3531;
-  --ring: #8bd5bf;
-  --chart-1: #8bd5bf;
-  --chart-2: #97d0d6;
-  --chart-3: #9fd1ff;
-  --chart-4: #0e6251;
-  --chart-5: #2c676c;
-  --sidebar: #15201c;
-  --sidebar-foreground: #e8f3ee;
-  --sidebar-primary: #8bd5bf;
-  --sidebar-primary-foreground: #002019;
-  --sidebar-accent: #1a2420;
-  --sidebar-accent-foreground: #a7f1db;
-  --sidebar-border: #2a3531;
-  --sidebar-ring: #8bd5bf;
+  --sidebar-border: #c5d4cd;
+  --sidebar-ring: #0e6251;
 }
 
 @theme inline {
   --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
   --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
   body {
     @apply bg-background font-sans text-foreground antialiased;
-  }
-  html {
-    @apply font-sans;
   }
   h1,
   h2,

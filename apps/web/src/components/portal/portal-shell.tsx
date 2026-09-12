@@ -16,7 +16,6 @@ import { useState } from "react";
 import { Button } from "@medi-connect/ui/components/button";
 import { cn } from "@medi-connect/ui/lib/utils";
 
-import { ModeToggle } from "@/components/mode-toggle";
 import UserMenu from "@/components/user-menu";
 
 const nav = [
@@ -117,7 +116,6 @@ export function PortalShell({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <ModeToggle />
             <UserMenu />
           </div>
         </header>
