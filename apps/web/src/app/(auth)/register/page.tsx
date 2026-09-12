@@ -98,7 +98,7 @@ export default function RegisterPage() {
       }
 
       toast.success("Clinic registered — pending verification");
-      router.push("/dashboard");
+      router.push("/emergency-triage");
     } catch (error) {
       toast.error(error instanceof Error ? error.message :"Registration failed");
       setLoading(false);

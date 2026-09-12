@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "name": "MediConnect",
+  "colors": {
+    "primary": "#0e6251",
+    "background": "#f0fcf7",
+    "card": "#ffffff",
+    "destructive": "#ba1a1a",
+    "border": "#c5d4cd",
+    "sidebar": "#ebf6f1"
+  },
+  "typography": {
+    "heading": "Plus Jakarta Sans",
+    "body": "Inter"
+  },
+  "radius": "0.625rem",
+  "surfaces": {
+    "live-feed": "split-attention-board"
+  }
+}
