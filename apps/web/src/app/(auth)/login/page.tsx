@@ -26,7 +26,7 @@ export default function LoginPage() {
       {
         onSuccess: () => {
           toast.success("Welcome back");
-          router.push("/dashboard");
+          router.push("/emergency-triage");
         },
         onError: (ctx) => {
           toast.error(ctx.error.message ||"Invalid credentials");
@@ -43,7 +43,7 @@ export default function LoginPage() {
           Clinic sign in
         </CardTitle>
         <CardDescription className="text-sm leading-relaxed sm:text-base">
-          Access your MediConnect dashboard for incoming patients and records. Patients do not
+          Access Emergency Triage for incoming patients and records. Patients do not
           sign in here.
         </CardDescription>
       </CardHeader>

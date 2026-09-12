@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import {
   Activity,
   Bot,
-  LayoutDashboard,
   Menu,
   UserPlus,
   Users,
@@ -19,8 +18,7 @@ import { cn } from "@medi-connect/ui/lib/utils";
 import UserMenu from "@/components/user-menu";
 
 const nav = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/triage", label: "Live Triage", icon: Activity },
+  { href: "/emergency-triage", label: "Emergency Triage", icon: Activity },
   { href: "/patients", label: "Patients", icon: Users },
   { href: "/patients/new", label: "Register patient", icon: UserPlus },
   { href: "/assistant", label: "AI Assistant", icon: Bot },
@@ -39,7 +37,9 @@ export function PortalShell({
   const NavLinks = ({ onNavigate }: { onNavigate?: () => void }) => (
     <nav className="flex flex-col gap-1.5 p-4">
       {nav.map(({ href, label, icon: Icon }) => {
-        const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href) && href !== "/patients/new");
+        const active =
+          pathname === href ||
+          (href !== "/emergency-triage" && pathname.startsWith(href) && href !== "/patients/new");
         const isExactPatients = href === "/patients" && pathname === "/patients";
         const isActive =
           href === "/patients"
@@ -66,17 +66,19 @@ export function PortalShell({
   );
 
   return (
-    <div className="flex min-h-svh bg-background">
-      <aside className="hidden w-64 shrink-0 border-r border-border bg-sidebar lg:flex lg:flex-col">
+    <div className="flex h-svh overflow-hidden bg-background">
+      <aside className="hidden h-full w-64 shrink-0 flex-col border-r border-border bg-sidebar lg:flex">
         <div className="flex flex-col gap-1 border-b border-sidebar-border px-5 py-6">
-          <Link href="/dashboard" className="font-heading text-xl font-bold tracking-tight text-primary">
+          <Link href="/emergency-triage" className="font-heading text-xl font-bold tracking-tight text-primary">
             MediConnect
           </Link>
           <p className="text-xs text-muted-foreground">
             {clinicName || "Clinical care portal"}
           </p>
         </div>
-        <NavLinks />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <NavLinks />
+        </div>
       </aside>
 
       {open ? (
@@ -94,13 +96,15 @@ export function PortalShell({
                 <X className="size-5" />
               </Button>
             </div>
-            <NavLinks onNavigate={() => setOpen(false)} />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <NavLinks onNavigate={() => setOpen(false)} />
+            </div>
           </aside>
         </div>
       ) : null}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6 lg:px-8">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -119,7 +123,9 @@ export function PortalShell({
             <UserMenu />
           </div>
         </header>
-        <main className="flex-1 px-3 py-4 sm:px-4 sm:py-5 lg:px-5 lg:py-5">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-5 lg:px-5 lg:py-5">
+          {children}
+        </main>
       </div>
     </div>
   );

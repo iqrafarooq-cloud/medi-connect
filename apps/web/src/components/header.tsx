@@ -11,8 +11,8 @@ export default function Header() {
         <Link href="/" className="text-primary">
           MediConnect
         </Link>
-        <Link href="/dashboard" className="text-muted-foreground hover:text-foreground">
-          Dashboard
+        <Link href="/emergency-triage" className="text-muted-foreground hover:text-foreground">
+          Emergency Triage
         </Link>
       </nav>
       <UserMenu />
