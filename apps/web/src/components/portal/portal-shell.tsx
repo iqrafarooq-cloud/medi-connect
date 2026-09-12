@@ -119,7 +119,7 @@ export function PortalShell({
             <UserMenu />
           </div>
         </header>
-        <main className="flex-1 px-4 py-8 sm:px-6 lg:px-10 lg:py-10">{children}</main>
+        <main className="flex-1 px-3 py-4 sm:px-4 sm:py-5 lg:px-5 lg:py-5">{children}</main>
       </div>
     </div>
   );
