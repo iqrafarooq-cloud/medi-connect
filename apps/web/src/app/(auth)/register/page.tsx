@@ -106,21 +106,21 @@ export default function RegisterPage() {
   }
 
   return (
-    <Card className="w-full max-w-2xl">
-      <CardHeader className="space-y-4 px-8 pt-10">
-        <div className="space-y-2">
+    <Card className="w-full max-w-4xl">
+      <CardHeader className="space-y-3 px-5 pt-5 sm:px-6">
+        <div className="space-y-1.5">
           <p className="text-sm font-medium text-primary">Step {step} of 4</p>
           <Progress value={step * 25} className="h-2" />
         </div>
-        <CardTitle className="font-heading text-3xl font-semibold tracking-tight">
+        <CardTitle className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
           Register your facility
         </CardTitle>
-        <CardDescription className="text-base leading-relaxed">
+        <CardDescription className="text-sm leading-relaxed sm:text-base">
           Clinics and hospitals only. Patients cannot create portal accounts — they are registered
           globally by staff after you join.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-8 px-8 pb-10">
+      <CardContent className="space-y-5 px-5 pb-5 sm:px-6">
         {step === 1 ? (
           <div className="grid gap-6 sm:grid-cols-2">
             <div className="space-y-2.5 sm:col-span-2">
