@@ -12,11 +12,19 @@ export function createAuth() {
 
 	return betterAuth({
 		database: drizzleAdapter(db, {
-provider: "pg",
-
-
+			provider: "pg",
 			schema: schema,
 		}),
+		user: {
+			additionalFields: {
+				role: {
+					type: "string",
+					required: false,
+					defaultValue: "clinic_owner",
+					input: false,
+				},
+			},
+		},
 		trustedOrigins: [
 			env.BETTER_AUTH_URL,
 			"medi-connect://",
