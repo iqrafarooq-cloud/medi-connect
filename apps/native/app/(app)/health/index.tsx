@@ -78,7 +78,6 @@ export default function HealthHubScreen() {
             />
             <RemedyCards
               last={remedy.data?.last ?? null}
-              clinics={remedy.data?.clinics ?? []}
               onStart={() => router.push("/(app)/health/remedy")}
             />
           </View>

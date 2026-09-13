@@ -1,17 +1,25 @@
 import { createDb } from "@medi-connect/db";
 import { clinic } from "@medi-connect/db/schema/clinic";
-import { patient } from "@medi-connect/db/schema/patient";
+import { patient, patientRemedyCheck } from "@medi-connect/db/schema/patient";
 import {
   clinicalLead,
   triageBay,
   triageCase,
   triagePrepItem,
 } from "@medi-connect/db/schema/triage";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
 import { protectedProcedure } from "../index";
+import { CLINIC_STATUS } from "../lib/clinic-verification";
+import {
+  complaintForQueue,
+  esiFromRemedySeverity,
+  joinQueueDecision,
+  type RemedySeverity,
+} from "../lib/health-remedy";
+import { requireSessionPatient } from "../lib/require-patient";
 
 const bayStatusSchema = z.enum(["available", "reserved", "in_care", "turnover"]);
 const caseStatusSchema = z.enum([
@@ -280,6 +288,142 @@ export const triageRouter = {
 
       return created;
     }),
+
+  joinFromPatient: protectedProcedure
+    .input(
+      z.object({
+        clinicId: z.string().min(1),
+        etaMinutesFromNow: z.number().int().min(1).max(200),
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const profile = await requireSessionPatient(context.session.user.id);
+      const db = createDb();
+      const facilities = await db.select().from(clinic).where(eq(clinic.id, input.clinicId)).limit(1);
+      const facility = facilities[0];
+      if (!facility || facility.status !== CLINIC_STATUS.ACTIVE) {
+        throw new ORPCError("NOT_FOUND", { message: "Clinic not found" });
+      }
+
+      await ensureDefaultBays(facility.id);
+
+      const active = await db
+        .select({ id: triageCase.id })
+        .from(triageCase)
+        .where(
+          and(
+            eq(triageCase.clinicId, facility.id),
+            eq(triageCase.patientId, profile.id),
+            inArray(triageCase.status, [...ACTIVE_CASE_STATUSES]),
+          ),
+        )
+        .limit(1);
+
+      const lastRows = await db
+        .select()
+        .from(patientRemedyCheck)
+        .where(eq(patientRemedyCheck.patientId, profile.id))
+        .orderBy(desc(patientRemedyCheck.createdAt))
+        .limit(1);
+      const last = lastRows[0];
+      const answers = last?.answers as { complaint?: unknown } | undefined;
+      const complaint = complaintForQueue({
+        complaint: typeof answers?.complaint === "string" ? answers.complaint : null,
+      });
+      const stored = last?.severity;
+      const severity: RemedySeverity | null =
+        stored === "severe" || stored === "watch" || stored === "self_care" ? stored : null;
+      const esi = esiFromRemedySeverity(severity);
+      const etaAt = resolveEtaAt({ etaMinutesFromNow: input.etaMinutesFromNow });
+      const fullName = profile.fullName;
+      const ageYears = ageFromDob(profile.dateOfBirth);
+      const gender = profile.gender;
+      const bloodType = profile.bloodType;
+      const decision = joinQueueDecision(active[0] ?? null);
+
+      if (decision.action === "update") {
+        const [updated] = await db
+          .update(triageCase)
+          .set({
+            fullName,
+            ageYears,
+            gender,
+            bloodType,
+            complaint,
+            esi,
+            transportUnit: "Patient app",
+            etaAt,
+          })
+          .where(and(eq(triageCase.id, decision.caseId), eq(triageCase.clinicId, facility.id)))
+          .returning();
+        return { ...updated, replayed: true as const };
+      }
+
+      const id = crypto.randomUUID();
+      const [created] = await db
+        .insert(triageCase)
+        .values({
+          id,
+          clinicId: facility.id,
+          patientId: profile.id,
+          fullName,
+          ageYears,
+          gender,
+          bloodType,
+          complaint,
+          category: "General",
+          transportUnit: "Patient app",
+          esi,
+          status: "inbound",
+          etaAt,
+          bayId: null,
+          createdByUserId: context.session.user.id,
+        })
+        .returning();
+
+      await db.insert(triagePrepItem).values(
+        DEFAULT_PREP.map((label, i) => ({
+          id: crypto.randomUUID(),
+          caseId: id,
+          label,
+          done: false,
+          sortOrder: i + 1,
+        })),
+      );
+
+      return { ...created, replayed: false as const };
+    }),
+
+  myQueue: protectedProcedure.handler(async ({ context }) => {
+    const profile = await requireSessionPatient(context.session.user.id);
+    const db = createDb();
+    const rows = await db
+      .select({
+        caseId: triageCase.id,
+        clinicId: triageCase.clinicId,
+        clinicName: clinic.name,
+        clinicType: clinic.type,
+        etaAt: triageCase.etaAt,
+        status: triageCase.status,
+        complaint: triageCase.complaint,
+      })
+      .from(triageCase)
+      .innerJoin(clinic, eq(triageCase.clinicId, clinic.id))
+      .where(
+        and(
+          eq(triageCase.patientId, profile.id),
+          inArray(triageCase.status, [...ACTIVE_CASE_STATUSES]),
+        ),
+      )
+      .orderBy(asc(triageCase.etaAt))
+      .limit(1);
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      ...row,
+      etaAt: row.etaAt.toISOString(),
+    };
+  }),
 
   updateCase: protectedProcedure
     .input(

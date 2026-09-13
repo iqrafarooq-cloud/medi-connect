@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Input, Label, Spinner, TextField, useToast } from "heroui-native";
+import { Input, Label, TextField, useToast } from "heroui-native";
 import { useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
@@ -141,8 +141,8 @@ export default function AddFactScreen() {
       title={TITLES[kind]}
       onBack={() => router.back()}
       footer={
-        <PrimaryButton size="lg" onPress={() => void save()} isDisabled={busy}>
-          {busy ? <Spinner size="sm" color="default" /> : <PrimaryButton.Label>Save</PrimaryButton.Label>}
+        <PrimaryButton size="lg" onPress={() => void save()} isLoading={busy}>
+          <PrimaryButton.Label>Save</PrimaryButton.Label>
         </PrimaryButton>
       }
     >

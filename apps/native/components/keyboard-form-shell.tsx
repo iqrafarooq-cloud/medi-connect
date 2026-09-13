@@ -1,9 +1,11 @@
 import { type ReactNode } from "react";
-import { Pressable, Text, View } from "react-native";
-import { KeyboardAwareScrollView, KeyboardStickyView } from "react-native-keyboard-controller";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Dimensions, Pressable, Text, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { initialWindowMetrics, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeColor } from "heroui-native";
+
+const HEADER_ROW = 44;
 
 type Props = {
   children: ReactNode;
@@ -15,6 +17,8 @@ type Props = {
 export function KeyboardFormShell({ children, footer, onBack, title }: Props) {
   const insets = useSafeAreaInsets();
   const foreground = useThemeColor("foreground");
+  const pageMinHeight =
+    (initialWindowMetrics?.frame.height ?? Dimensions.get("window").height) - insets.top - HEADER_ROW;
 
   return (
     <View className="flex-1 bg-background">
@@ -44,27 +48,24 @@ export function KeyboardFormShell({ children, footer, onBack, title }: Props) {
       <KeyboardAwareScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
-          flexGrow: 1,
+          minHeight: pageMinHeight,
           paddingHorizontal: 16,
-          paddingBottom: footer ? 12 : 16,
         }}
         keyboardShouldPersistTaps="handled"
-        bottomOffset={24}
-        extraKeyboardSpace={12}
+        keyboardDismissMode="interactive"
+        bottomOffset={28}
+        extraKeyboardSpace={16}
       >
-        {children}
-      </KeyboardAwareScrollView>
-
-      {footer ? (
-        <KeyboardStickyView offset={{ closed: 0, opened: 8 }}>
+        <View style={{ flexGrow: 1 }}>{children}</View>
+        {footer ? (
           <View
-            className="border-t border-border bg-background px-4 pt-2"
+            className="mt-3 border-t border-border bg-background pt-2"
             style={{ paddingBottom: Math.max(insets.bottom, 10) }}
           >
             {footer}
           </View>
-        </KeyboardStickyView>
-      ) : null}
+        ) : null}
+      </KeyboardAwareScrollView>
     </View>
   );
 }

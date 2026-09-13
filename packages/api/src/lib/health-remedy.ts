@@ -61,6 +61,8 @@ export type NearbyClinic = {
   city: string;
   phone: string;
   distanceKm: number | null;
+  latitude: number;
+  longitude: number;
 };
 
 export type RemedyLastCheck = {
@@ -356,28 +358,85 @@ export function haversineKm(
   return 2 * earth * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
+function mapActiveClinics(
+  clinics: ClinicCandidate[],
+  origin?: { latitude: number; longitude: number },
+): NearbyClinic[] {
+  const mapped: NearbyClinic[] = clinics
+    .filter((clinic) => clinic.status === "active")
+    .map((clinic) => ({
+      id: clinic.id,
+      name: clinic.name,
+      type: clinic.type,
+      address: clinic.address,
+      city: clinic.city,
+      phone: clinic.phone,
+      distanceKm: origin ? Math.round(haversineKm(origin, clinic) * 10) / 10 : null,
+      latitude: clinic.latitude,
+      longitude: clinic.longitude,
+    }));
+  mapped.sort((a, b) => {
+    if (a.distanceKm != null && b.distanceKm != null) return a.distanceKm - b.distanceKm;
+    return a.name.localeCompare(b.name);
+  });
+  return mapped;
+}
+
 export function rankNearbyClinics(
   clinics: ClinicCandidate[],
   origin?: { latitude: number; longitude: number },
   limit = 3,
 ): NearbyClinic[] {
-  const active = clinics.filter((clinic) => clinic.status === "active");
-  const mapped: NearbyClinic[] = active.map((clinic) => ({
-    id: clinic.id,
-    name: clinic.name,
-    type: clinic.type,
-    address: clinic.address,
-    city: clinic.city,
-    phone: clinic.phone,
-    distanceKm: origin
-      ? Math.round(haversineKm(origin, clinic) * 10) / 10
-      : null,
-  }));
-  mapped.sort((a, b) => {
-    if (a.distanceKm != null && b.distanceKm != null) return a.distanceKm - b.distanceKm;
-    return a.name.localeCompare(b.name);
-  });
-  return mapped.slice(0, limit);
+  return mapActiveClinics(clinics, origin).slice(0, limit);
+}
+
+export function listEnrolledClinics(
+  clinics: ClinicCandidate[],
+  origin?: { latitude: number; longitude: number },
+): NearbyClinic[] {
+  return mapActiveClinics(clinics, origin);
+}
+
+export function filterEnrolledClinics(clinics: NearbyClinic[], query: string): NearbyClinic[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return clinics;
+  return clinics.filter((clinic) =>
+    [clinic.name, clinic.city, clinic.address].some((part) => part.toLowerCase().includes(needle)),
+  );
+}
+
+export const DEFAULT_ETA_MINUTES = 10;
+export const MIN_ETA_MINUTES = 1;
+export const MAX_ETA_MINUTES = 200;
+
+export function clampEtaMinutes(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_ETA_MINUTES;
+  return Math.min(MAX_ETA_MINUTES, Math.max(MIN_ETA_MINUTES, Math.round(value)));
+}
+
+export function etaMinutesFromKm(distanceKm: number | null): number {
+  if (distanceKm == null || Number.isNaN(distanceKm)) return DEFAULT_ETA_MINUTES;
+  return clampEtaMinutes(Math.max(DEFAULT_ETA_MINUTES, Math.round(distanceKm * 2)));
+}
+
+export function esiFromRemedySeverity(severity: RemedySeverity | null): 2 | 3 | 4 {
+  if (severity === "severe") return 2;
+  if (severity === "watch") return 3;
+  return 4;
+}
+
+export function complaintForQueue(input: { complaint?: string | null } | null): string {
+  const value = input?.complaint?.trim();
+  if (!value) return "On the way";
+  const label = REMEDY_QUESTIONS[0]?.options.find((option) => option.value === value)?.label;
+  return label ?? "On the way";
+}
+
+export function joinQueueDecision(
+  existingActive: { id: string } | null,
+): { action: "insert" } | { action: "update"; caseId: string } {
+  if (existingActive) return { action: "update", caseId: existingActive.id };
+  return { action: "insert" };
 }
 
 export function assembleRemedyHub(input: {
