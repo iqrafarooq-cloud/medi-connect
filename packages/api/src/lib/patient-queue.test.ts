@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   complaintForQueue,
   esiFromRemedySeverity,
+  clampEtaMinutes,
   etaMinutesFromKm,
   filterEnrolledClinics,
   joinQueueDecision,
@@ -49,14 +50,24 @@ describe("filterEnrolledClinics", () => {
   });
 });
 
+describe("clampEtaMinutes", () => {
+  it("keeps ETA between 1 and 200 minutes", () => {
+    assert.equal(clampEtaMinutes(10), 10);
+    assert.equal(clampEtaMinutes(0), 1);
+    assert.equal(clampEtaMinutes(201), 200);
+    assert.equal(clampEtaMinutes(Number.NaN), 10);
+  });
+});
+
 describe("etaMinutesFromKm", () => {
-  it("uses two minutes per kilometre with a five-minute floor", () => {
-    assert.equal(etaMinutesFromKm(1.2), 5);
+  it("uses two minutes per kilometre with a ten-minute floor and a 200-minute cap", () => {
+    assert.equal(etaMinutesFromKm(1.2), 10);
     assert.equal(etaMinutesFromKm(8), 16);
+    assert.equal(etaMinutesFromKm(150), 200);
   });
 
-  it("defaults to 15 minutes when distance is unknown", () => {
-    assert.equal(etaMinutesFromKm(null), 15);
+  it("defaults to 10 minutes when distance is unknown", () => {
+    assert.equal(etaMinutesFromKm(null), 10);
   });
 });
 

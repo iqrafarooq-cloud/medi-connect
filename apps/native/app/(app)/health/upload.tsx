@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Input, Label, Spinner, TextField, useToast, useThemeColor } from "heroui-native";
+import { Input, Label, TextField, useToast, useThemeColor } from "heroui-native";
 import type { ComponentProps } from "react";
 import { useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -94,8 +94,8 @@ export default function UploadRecordScreen() {
       title="Upload"
       onBack={() => router.back()}
       footer={
-        <PrimaryButton size="lg" onPress={() => void save()} isDisabled={busy || !file}>
-          {busy ? <Spinner size="sm" color="default" /> : <PrimaryButton.Label>Save record</PrimaryButton.Label>}
+        <PrimaryButton size="lg" onPress={() => void save()} isDisabled={!file} isLoading={busy}>
+          <PrimaryButton.Label>Save record</PrimaryButton.Label>
         </PrimaryButton>
       }
     >

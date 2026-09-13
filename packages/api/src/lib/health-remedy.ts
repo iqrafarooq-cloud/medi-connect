@@ -405,9 +405,18 @@ export function filterEnrolledClinics(clinics: NearbyClinic[], query: string): N
   );
 }
 
+export const DEFAULT_ETA_MINUTES = 10;
+export const MIN_ETA_MINUTES = 1;
+export const MAX_ETA_MINUTES = 200;
+
+export function clampEtaMinutes(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_ETA_MINUTES;
+  return Math.min(MAX_ETA_MINUTES, Math.max(MIN_ETA_MINUTES, Math.round(value)));
+}
+
 export function etaMinutesFromKm(distanceKm: number | null): number {
-  if (distanceKm == null || Number.isNaN(distanceKm)) return 15;
-  return Math.max(5, Math.round(distanceKm * 2));
+  if (distanceKm == null || Number.isNaN(distanceKm)) return DEFAULT_ETA_MINUTES;
+  return clampEtaMinutes(Math.max(DEFAULT_ETA_MINUTES, Math.round(distanceKm * 2)));
 }
 
 export function esiFromRemedySeverity(severity: RemedySeverity | null): 2 | 3 | 4 {

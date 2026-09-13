@@ -1,38 +1,48 @@
 import { Ionicons } from "@expo/vector-icons";
-import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
-import { etaMinutesFromKm, filterEnrolledClinics } from "@medi-connect/api/lib/health-remedy";
+import {
+  clampEtaMinutes,
+  DEFAULT_ETA_MINUTES,
+  etaMinutesFromKm,
+  filterEnrolledClinics,
+  MAX_ETA_MINUTES,
+} from "@medi-connect/api/lib/health-remedy";
 import type { NearbyClinic } from "@medi-connect/api/lib/health-remedy";
 import { useQuery } from "@tanstack/react-query";
 import * as Location from "expo-location";
 import { useLocalSearchParams } from "expo-router";
 import { Spinner, useThemeColor, useToast } from "heroui-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE, type Region } from "react-native-maps";
 
 import { ClinicRow } from "@/components/clinic/clinic-row";
-import { OnTheWaySheet } from "@/components/clinic/on-the-way-sheet";
+import { OnTheWayCard } from "@/components/clinic/on-the-way-card";
+import { QueueStatusCard } from "@/components/clinic/queue-status-card";
 import { getRpcErrorMessage } from "@/lib/form-errors";
-import { fitMapToClinics, LAHORE_REGION, type MapPoint } from "@/lib/clinic-map";
+import {
+  fitMapToClinics,
+  LAHORE_REGION,
+  MAX_NEARBY_KM,
+  minutesUntilEta,
+  originIsNearby,
+  type MapPoint,
+} from "@/lib/clinic-map";
 import { palette } from "@/theme";
-import { client, orpc } from "@/utils/orpc";
+import { client, orpc, queryClient } from "@/utils/orpc";
 
 export default function ClinicMapScreen() {
   const { toast } = useToast();
   const params = useLocalSearchParams<{ focus?: string }>();
-  const surface = useThemeColor("surface");
   const foreground = useThemeColor("foreground");
   const muted = useThemeColor("muted");
   const mapRef = useRef<MapView>(null);
-  const sheetRef = useRef<BottomSheet>(null);
   const [search, setSearch] = useState("");
   const [origin, setOrigin] = useState<MapPoint | null>(null);
   const [locationReady, setLocationReady] = useState(false);
   const [locationDenied, setLocationDenied] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [enRouteId, setEnRouteId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<NearbyClinic | null>(null);
-  const [minutes, setMinutes] = useState(15);
+  const [minutes, setMinutes] = useState(DEFAULT_ETA_MINUTES);
   const [busy, setBusy] = useState(false);
 
   const nearby = useQuery({
@@ -43,13 +53,25 @@ export default function ClinicMapScreen() {
     }),
     enabled: locationReady,
   });
+  const queue = useQuery(orpc.triage.myQueue.queryOptions());
 
   const clinics = useMemo(
     () => filterEnrolledClinics(nearby.data ?? [], search),
     [nearby.data, search],
   );
-
-  const snapPoints = useMemo(() => ["30%", "48%", "80%"], []);
+  const clinicPoints = useMemo(
+    () =>
+      (nearby.data ?? []).map((clinic) => ({
+        latitude: clinic.latitude,
+        longitude: clinic.longitude,
+      })),
+    [nearby.data],
+  );
+  const localOrigin = originIsNearby(origin, clinicPoints) ? origin : null;
+  const queuedClinic = useMemo(
+    () => clinics.find((clinic) => clinic.id === queue.data?.clinicId) ?? null,
+    [clinics, queue.data?.clinicId],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -93,14 +115,24 @@ export default function ClinicMapScreen() {
   useEffect(() => {
     if (!locationReady || nearby.isLoading) return;
     const focusNearby = params.focus === "nearby";
-    const points = (nearby.data ?? []).map((clinic) => ({
-      latitude: clinic.latitude,
-      longitude: clinic.longitude,
-    }));
-    const region = fitMapToClinics(focusNearby ? points.slice(0, 5) : points, origin);
+    const queuedPoint = queuedClinic
+      ? [{ latitude: queuedClinic.latitude, longitude: queuedClinic.longitude }]
+      : [];
+    const region = fitMapToClinics(
+      queuedPoint.length ? queuedPoint : focusNearby ? clinicPoints.slice(0, 5) : clinicPoints,
+      localOrigin,
+    );
     animateTo(region);
-    if (focusNearby) sheetRef.current?.snapToIndex(1);
-  }, [animateTo, locationReady, nearby.data, nearby.isLoading, origin, params.focus]);
+    if (queuedClinic) setSelectedId(queuedClinic.id);
+  }, [
+    animateTo,
+    clinicPoints,
+    localOrigin,
+    locationReady,
+    nearby.isLoading,
+    params.focus,
+    queuedClinic,
+  ]);
 
   function selectClinic(clinic: NearbyClinic) {
     setSelectedId(clinic.id);
@@ -110,13 +142,17 @@ export default function ClinicMapScreen() {
       latitudeDelta: 0.04,
       longitudeDelta: 0.04,
     });
-    sheetRef.current?.snapToIndex(1);
   }
 
   function openWay(clinic: NearbyClinic) {
     setSelectedId(clinic.id);
     setConfirm(clinic);
-    setMinutes(etaMinutesFromKm(clinic.distanceKm));
+    setMinutes(
+      clinic.distanceKm != null && clinic.distanceKm <= MAX_NEARBY_KM
+        ? etaMinutesFromKm(clinic.distanceKm)
+        : DEFAULT_ETA_MINUTES,
+    );
+    selectClinic(clinic);
   }
 
   async function confirmWay() {
@@ -125,13 +161,13 @@ export default function ClinicMapScreen() {
     try {
       await client.triage.joinFromPatient({
         clinicId: confirm.id,
-        etaMinutesFromNow: minutes,
+        etaMinutesFromNow: clampEtaMinutes(minutes),
       });
-      setEnRouteId(confirm.id);
+      await queryClient.invalidateQueries({ queryKey: orpc.triage.myQueue.queryOptions().queryKey });
       setConfirm(null);
       toast.show({
         variant: "success",
-        label: `${confirm.name} was notified. You’re on their inbound queue.`,
+        label: `You're in the queue at ${confirm.name}`,
       });
     } catch (error) {
       toast.show({
@@ -146,67 +182,106 @@ export default function ClinicMapScreen() {
   const emptyMessage = !nearby.data?.length
     ? "No enrolled clinic is listed yet."
     : "No enrolled clinic matches that search.";
+  const etaMinutes = queue.data
+    ? Math.min(MAX_ETA_MINUTES, minutesUntilEta(new Date(queue.data.etaAt)))
+    : 0;
 
   return (
     <View className="flex-1 bg-background">
-      {Platform.OS === "web" ? (
-        <View className="flex-1 bg-surface-secondary" />
-      ) : (
-        <MapView
-          ref={mapRef}
-          style={{ flex: 1 }}
-          provider={PROVIDER_GOOGLE}
-          initialRegion={LAHORE_REGION}
-          showsUserLocation={Boolean(origin)}
-          showsMyLocationButton={false}
-          toolbarEnabled={false}
-        >
-          {clinics.map((clinic) => (
-            <Marker
-              key={clinic.id}
-              coordinate={{ latitude: clinic.latitude, longitude: clinic.longitude }}
-              title={clinic.name}
-              pinColor={clinic.id === selectedId ? palette.tertiary : palette.primary}
-              onPress={() => selectClinic(clinic)}
-            />
-          ))}
-        </MapView>
-      )}
-
-      <View className="absolute left-4 right-4 top-3 z-10">
-        <View className="flex-row items-center rounded-2xl border border-border bg-surface px-3.5" style={{ height: 52 }}>
-          <Ionicons name="search" size={18} color={muted} />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search nearby clinics..."
-            placeholderTextColor={muted}
-            className="ml-2 flex-1 text-[16px] text-foreground"
-            autoCorrect={false}
-            returnKeyType="search"
-            accessibilityLabel="Search nearby clinics"
-          />
-          {search.length > 0 ? (
-            <Pressable onPress={() => setSearch("")} accessibilityRole="button" accessibilityLabel="Clear search">
-              <Ionicons name="close-circle" size={18} color={muted} />
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
-
-      <BottomSheet
-        ref={sheetRef}
-        index={1}
-        snapPoints={snapPoints}
-        enablePanDownToClose={false}
-        backgroundStyle={{ backgroundColor: surface, borderRadius: 28 }}
-        handleIndicatorStyle={{ backgroundColor: muted, width: 40 }}
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 24 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <BottomSheetScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 28 }}>
+        <View className="px-4 pt-2">
+          <View className="flex-row items-center rounded-2xl border border-border bg-surface px-3.5" style={{ height: 52 }}>
+            <Ionicons name="search" size={18} color={muted} />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search nearby clinics..."
+              placeholderTextColor={muted}
+              className="ml-2 flex-1 text-[16px] text-foreground"
+              autoCorrect={false}
+              returnKeyType="search"
+              accessibilityLabel="Search nearby clinics"
+            />
+            {search.length > 0 ? (
+              <Pressable onPress={() => setSearch("")} accessibilityRole="button" accessibilityLabel="Clear search">
+                <Ionicons name="close-circle" size={18} color={muted} />
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+
+        <View className="mx-4 mt-3 overflow-hidden rounded-2xl border border-border" style={{ height: 260 }}>
+          {Platform.OS === "web" ? (
+            <View className="flex-1 items-center justify-center bg-surface-secondary px-6">
+              <Ionicons name="map-outline" size={28} color={muted} />
+              <Text className="mt-2 text-center text-[14px] leading-5 text-muted">
+                Open the iOS or Android app to see the clinic map.
+              </Text>
+            </View>
+          ) : (
+            <MapView
+              ref={mapRef}
+              style={{ width: "100%", height: 260 }}
+              provider={PROVIDER_GOOGLE}
+              initialRegion={LAHORE_REGION}
+              showsUserLocation={Boolean(localOrigin)}
+              showsMyLocationButton={false}
+              toolbarEnabled={false}
+            >
+              {clinics.map((clinic) => (
+                <Marker
+                  key={clinic.id}
+                  coordinate={{ latitude: clinic.latitude, longitude: clinic.longitude }}
+                  title={clinic.name}
+                  pinColor={
+                    clinic.id === queue.data?.clinicId
+                      ? palette.tertiary
+                      : clinic.id === selectedId
+                        ? palette.secondary
+                        : palette.primary
+                  }
+                  onPress={() => selectClinic(clinic)}
+                />
+              ))}
+            </MapView>
+          )}
+        </View>
+
+        {queue.data ? (
+          <View className="mt-3">
+            <QueueStatusCard clinicName={queue.data.clinicName} minutesLeft={etaMinutes} />
+          </View>
+        ) : null}
+
+        {confirm ? (
+          <View className="px-4 mt-3">
+            <OnTheWayCard
+              clinicName={confirm.name}
+              minutes={minutes}
+              busy={busy}
+              onChangeMinutes={setMinutes}
+              onClose={() => {
+                if (!busy) setConfirm(null);
+              }}
+              onConfirm={() => void confirmWay()}
+            />
+          </View>
+        ) : null}
+
+        <View className="px-4 mt-5">
           <Text className="text-[20px] font-bold text-foreground tracking-tight">Nearby Clinics</Text>
-          {locationDenied ? (
+          {locationDenied || !origin ? (
             <Text className="mt-1 text-[13px] leading-5 text-muted">
-              Turn on location to rank clinics by distance. Search still works.
+              Showing enrolled clinics. Turn on location on this device to rank them by distance.
+            </Text>
+          ) : !localOrigin ? (
+            <Text className="mt-1 text-[13px] leading-5 text-muted">
+              Showing enrolled clinics. Distances appear when you are nearby.
             </Text>
           ) : (
             <Text className="mt-1 text-[13px] leading-5 text-muted">
@@ -230,27 +305,15 @@ export default function ClinicMapScreen() {
                   key={clinic.id}
                   clinic={clinic}
                   selected={selectedId === clinic.id}
-                  enRoute={enRouteId === clinic.id}
+                  enRoute={queue.data?.clinicId === clinic.id}
                   onSelect={() => selectClinic(clinic)}
                   onWay={() => openWay(clinic)}
                 />
               ))}
             </View>
           )}
-        </BottomSheetScrollView>
-      </BottomSheet>
-
-      <OnTheWaySheet
-        open={confirm != null}
-        clinicName={confirm?.name ?? ""}
-        minutes={minutes}
-        busy={busy}
-        onChangeMinutes={setMinutes}
-        onClose={() => {
-          if (!busy) setConfirm(null);
-        }}
-        onConfirm={() => void confirmWay()}
-      />
+        </View>
+      </ScrollView>
     </View>
   );
 }

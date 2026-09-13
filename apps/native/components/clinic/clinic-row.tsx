@@ -55,13 +55,13 @@ export function ClinicRow({
         className="mt-3 h-11 items-center justify-center rounded-xl"
         style={{ backgroundColor: enRoute ? "rgba(5, 150, 105, 0.16)" : palette.primary }}
         accessibilityRole="button"
-        accessibilityLabel={enRoute ? `${clinic.name} already on the way` : `On the way to ${clinic.name}`}
+        accessibilityLabel={enRoute ? `In the queue at ${clinic.name}` : `On the way to ${clinic.name}`}
       >
         <Text
           className="text-[15px] font-semibold"
           style={{ color: enRoute ? palette.primary : palette.white }}
         >
-          {enRoute ? "On the way" : "On the way"}
+          {enRoute ? "In this queue" : "On the way"}
         </Text>
       </Pressable>
     </Pressable>

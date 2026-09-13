@@ -12,9 +12,35 @@ export const LAHORE_REGION: MapRegion = {
   longitudeDelta: 0.12,
 };
 
+export const MAX_NEARBY_KM = 250;
+
 export function formatClinicDistance(km: number | null): string | null {
-  if (km == null) return null;
+  if (km == null || km > MAX_NEARBY_KM) return null;
   return `${km.toFixed(1)} km away`;
+}
+
+export function originIsNearby(
+  origin: MapPoint | null,
+  points: MapPoint[],
+  maxKm = MAX_NEARBY_KM,
+): origin is MapPoint {
+  if (!origin || points.length === 0) return false;
+  return points.some((point) => {
+    const dLat = ((point.latitude - origin.latitude) * Math.PI) / 180;
+    const dLon = ((point.longitude - origin.longitude) * Math.PI) / 180;
+    const lat1 = (origin.latitude * Math.PI) / 180;
+    const lat2 = (point.latitude * Math.PI) / 180;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+    return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h))) <= maxKm;
+  });
+}
+
+export function formatQueueStatus(clinicName: string): string {
+  return `You're in the queue at ${clinicName}`;
+}
+
+export function minutesUntilEta(etaAt: Date, now = new Date()): number {
+  return Math.max(0, Math.round((etaAt.getTime() - now.getTime()) / 60_000));
 }
 
 export function fitMapToClinics(points: MapPoint[], origin?: MapPoint | null): MapRegion {

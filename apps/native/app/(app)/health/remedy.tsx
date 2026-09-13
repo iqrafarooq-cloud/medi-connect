@@ -5,7 +5,7 @@ import {
   type RemedyAnswers,
 } from "@medi-connect/api/lib/health-remedy";
 import { useRouter } from "expo-router";
-import { Spinner, useToast } from "heroui-native";
+import { useToast } from "heroui-native";
 import { useMemo, useRef, useState } from "react";
 import { Text, View } from "react-native";
 
@@ -133,8 +133,8 @@ export default function RemedyScreen() {
         title="Feeling unwell"
       onBack={() => router.back()}
       footer={
-        <PrimaryButton size="lg" onPress={() => void submit()} isDisabled={!ready || busy}>
-          {busy ? <Spinner size="sm" color="default" /> : <PrimaryButton.Label>Get support</PrimaryButton.Label>}
+        <PrimaryButton size="lg" onPress={() => void submit()} isDisabled={!ready} isLoading={busy}>
+          <PrimaryButton.Label>Get support</PrimaryButton.Label>
         </PrimaryButton>
       }
     >

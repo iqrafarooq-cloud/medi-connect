@@ -293,7 +293,7 @@ export const triageRouter = {
     .input(
       z.object({
         clinicId: z.string().min(1),
-        etaMinutesFromNow: z.number().int().min(0).max(24 * 60),
+        etaMinutesFromNow: z.number().int().min(1).max(200),
       }),
     )
     .handler(async ({ context, input }) => {
@@ -393,6 +393,37 @@ export const triageRouter = {
 
       return { ...created, replayed: false as const };
     }),
+
+  myQueue: protectedProcedure.handler(async ({ context }) => {
+    const profile = await requireSessionPatient(context.session.user.id);
+    const db = createDb();
+    const rows = await db
+      .select({
+        caseId: triageCase.id,
+        clinicId: triageCase.clinicId,
+        clinicName: clinic.name,
+        clinicType: clinic.type,
+        etaAt: triageCase.etaAt,
+        status: triageCase.status,
+        complaint: triageCase.complaint,
+      })
+      .from(triageCase)
+      .innerJoin(clinic, eq(triageCase.clinicId, clinic.id))
+      .where(
+        and(
+          eq(triageCase.patientId, profile.id),
+          inArray(triageCase.status, [...ACTIVE_CASE_STATUSES]),
+        ),
+      )
+      .orderBy(asc(triageCase.etaAt))
+      .limit(1);
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      ...row,
+      etaAt: row.etaAt.toISOString(),
+    };
+  }),
 
   updateCase: protectedProcedure
     .input(

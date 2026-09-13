@@ -3,8 +3,20 @@ import type { ComponentProps } from "react";
 
 import { palette } from "@/theme";
 
-function PrimaryButtonRoot({ style, ...props }: ComponentProps<typeof Button>) {
-  return <Button {...props} style={[{ backgroundColor: palette.primary }, style]} />;
+type Props = ComponentProps<typeof Button> & {
+  isLoading?: boolean;
+};
+
+function PrimaryButtonRoot({ style, isDisabled, isLoading, ...props }: Props) {
+  const dimmed = Boolean(isDisabled || isLoading);
+
+  return (
+    <Button
+      {...props}
+      isDisabled={dimmed}
+      style={[{ backgroundColor: palette.primary }, dimmed ? { opacity: 0.45 } : null, style]}
+    />
+  );
 }
 
 export const PrimaryButton = Object.assign(PrimaryButtonRoot, {
