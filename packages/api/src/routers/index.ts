@@ -4,6 +4,7 @@ import { protectedProcedure, publicProcedure } from "../index";
 import { clinicRouter } from "./clinic";
 import { clinicalRouter } from "./clinical";
 import { patientRouter } from "./patient";
+import { triageRouter } from "./triage";
 
 export const appRouter = {
   healthCheck: publicProcedure.handler(() => {
@@ -18,6 +19,7 @@ export const appRouter = {
   clinic: clinicRouter,
   patient: patientRouter,
   clinical: clinicalRouter,
+  triage: triageRouter,
 };
 export type AppRouter = typeof appRouter;
 export type AppRouterClient = RouterClient<typeof appRouter>;
