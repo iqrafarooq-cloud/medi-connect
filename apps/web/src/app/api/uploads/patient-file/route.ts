@@ -20,16 +20,39 @@ import { NextResponse } from "next/server";
 
 const CATEGORIES = new Set(["report", "prescription", "lab", "imaging", "other", "home_monitoring"]);
 
+function guessUploadCategory(filename: string, mimeType: string) {
+  const name = filename.toLowerCase().replace(/[_\-]+/g, " ");
+  if (mimeType.includes("csv") || name.endsWith(".csv")) return "home_monitoring";
+  if (
+    /\b(lab|labs|cbc|cmp|bmp|panel|a1c|hba1c|lipid|troponin|creatinine|egfr|results|pathology|blood work)\b/.test(
+      name,
+    )
+  ) {
+    return "lab";
+  }
+  if (/\b(rx|prescription|script|medication|pharmacy|med list)\b/.test(name)) {
+    return "prescription";
+  }
+  if (/\b(xray|x ray|ct|mri|ultrasound|imaging|radiolog|echo|chest)\b/.test(name)) {
+    return "imaging";
+  }
+  return "report";
+}
+
 function guessDocumentType(filename: string, category: string, mimeType: string) {
-  const lower = filename.toLowerCase();
+  const lower = filename.toLowerCase().replace(/[_\-]+/g, " ");
   if (mimeType.includes("csv") || lower.endsWith(".csv")) return "home_monitoring_log" as const;
-  if (category === "lab") return "lab_panel" as const;
-  if (category === "imaging") return "radiology_report" as const;
-  if (lower.includes("ophthal") || lower.includes("retina") || lower.includes("eye"))
-    return "eye_exam" as const;
-  if (lower.includes("pulm") || lower.includes("progress")) return "progress_note" as const;
-  if (lower.includes("nephro") || lower.includes("consult")) return "specialist_consult" as const;
-  if (lower.includes("soap") || lower.includes("primary")) return "soap_note" as const;
+  if (category === "lab" || /\b(lab|labs|cbc|panel|pathology|results)\b/.test(lower)) {
+    return "lab_panel" as const;
+  }
+  if (category === "imaging" || /\b(xray|ct|mri|ultrasound|imaging|radiolog|echo)\b/.test(lower)) {
+    return "radiology_report" as const;
+  }
+  if (/\b(ophthal|retina|eye exam|fundus)\b/.test(lower)) return "eye_exam" as const;
+  if (/\b(pulm|progress note|follow.?up)\b/.test(lower)) return "progress_note" as const;
+  if (/\b(nephro|consult|specialist)\b/.test(lower)) return "specialist_consult" as const;
+  if (/\b(soap|primary care|outpatient)\b/.test(lower)) return "soap_note" as const;
+  if (category === "prescription") return "other" as const;
   return "other" as const;
 }
 
@@ -42,7 +65,18 @@ export async function POST(request: Request) {
   const form = await request.formData();
   const file = form.get("file");
   const patientId = String(form.get("patientId") || "");
-  const category = String(form.get("category") || "report");
+  const mimeTypeEarly =
+    (file instanceof File && file.type) ||
+    (file instanceof File && file.name.toLowerCase().endsWith(".csv")
+      ? "text/csv"
+      : "") ||
+    (file instanceof File && file.name.toLowerCase().endsWith(".pdf")
+      ? "application/pdf"
+      : "");
+  const category = guessUploadCategory(
+    file instanceof File ? file.name : "",
+    mimeTypeEarly,
+  );
 
   if (!patientId) {
     return NextResponse.json({ error: "patientId is required" }, { status: 400 });

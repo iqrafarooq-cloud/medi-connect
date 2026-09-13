@@ -72,8 +72,10 @@ export function DatePicker({
   const [month, setMonth] = React.useState<Date>(selected ?? new Date(toYear - 25, 0, 1));
 
   React.useEffect(() => {
-    if (selected) setMonth(selected);
-  }, [selected]);
+    if (!value) return;
+    const parsed = parseDateOnly(value);
+    if (parsed) setMonth(parsed);
+  }, [value]);
 
   function shiftMonth(delta: number) {
     const next = new Date(month);

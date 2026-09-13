@@ -7,6 +7,7 @@ import {
   queryActiveMedications,
   queryExtractedLabs,
   queryHomeGlucose,
+  queryPatientEncounters,
   queryReconciledAllergies,
   recordNoteInsertion,
   runAllergyConflictCheck,
@@ -26,7 +27,7 @@ export function searchPatientRecords(patientId: string) {
 export function getLabTrend(patientId: string) {
   return tool({
     description:
-      'Exact time series for a named lab test (e.g. "eGFR", "HbA1c", "Serum Creatinine") for this patient, sourced from structured lab extractions, not free text.',
+      'Exact time series for a named lab test (e.g. "eGFR", "HbA1c", "Serum Creatinine") for this patient, from structured lab extractions including both PDF-ingested and manually entered values.',
     inputSchema: z.object({
       testName: z.string(),
       sinceDate: z.string().optional(),
@@ -74,6 +75,18 @@ export function getHomeGlucoseReadings(patientId: string) {
         })),
       });
     },
+  });
+}
+
+export function getPatientEncounters(patientId: string) {
+  return tool({
+    description:
+      "Structured clinical encounters for this patient (notes, facility visits, metrics, prescriptions recorded in encounter summaries). Prefer this over searchPatientRecords for visit history or what a clinician documented at a visit.",
+    inputSchema: z.object({
+      sinceDate: z.string().optional().describe("ISO date lower bound, optional"),
+    }),
+    execute: async ({ sinceDate }) =>
+      toToolJson(await queryPatientEncounters(patientId, sinceDate)),
   });
 }
 

@@ -8,6 +8,7 @@ import {
   homeMonitoringReading,
   noteInsertion,
 } from "@medi-connect/db/schema/clinical";
+import { patientEncounter } from "@medi-connect/db/schema/patient";
 import { and, asc, cosineDistance, desc, eq, gte, sql } from "drizzle-orm";
 
 import { checkAgainstAllergyList } from "./allergy-check";
@@ -189,6 +190,36 @@ export async function queryHomeGlucose(patientId: string) {
       ),
     )
     .orderBy(asc(homeMonitoringReading.measuredAt));
+}
+
+export async function queryPatientEncounters(patientId: string, sinceDate?: string) {
+  const db = createDb();
+  const conditions = [eq(patientEncounter.patientId, patientId)];
+  if (sinceDate) {
+    conditions.push(gte(patientEncounter.occurredAt, new Date(sinceDate)));
+  }
+
+  const rows = await db
+    .select({
+      id: patientEncounter.id,
+      kind: patientEncounter.kind,
+      occurredAt: patientEncounter.occurredAt,
+      title: patientEncounter.title,
+      facility: patientEncounter.facility,
+      summary: patientEncounter.summary,
+      badge: patientEncounter.badge,
+      metrics: patientEncounter.metrics,
+      links: patientEncounter.links,
+      inbound: patientEncounter.inbound,
+    })
+    .from(patientEncounter)
+    .where(and(...conditions))
+    .orderBy(desc(patientEncounter.occurredAt));
+
+  return rows.map((r, i) => ({
+    citationIndex: i + 1,
+    ...r,
+  }));
 }
 
 export async function recordNoteInsertion(input: {

@@ -51,6 +51,28 @@ type QueueItem = {
   error?: string;
 };
 
+/** Storage/routing category guessed from filename; final clinical type comes from ingest. */
+function guessUploadCategory(file: File): string {
+  const name = file.name.toLowerCase().replace(/[_\-]+/g, " ");
+  if (name.endsWith(".csv") || file.type.includes("csv")) {
+    return "home_monitoring";
+  }
+  if (
+    /\b(lab|labs|cbc|cmp|bmp|panel|a1c|hba1c|lipid|troponin|creatinine|egfr|results|pathology|blood work)\b/.test(
+      name,
+    )
+  ) {
+    return "lab";
+  }
+  if (/\b(rx|prescription|script|medication|pharmacy|med list)\b/.test(name)) {
+    return "prescription";
+  }
+  if (/\b(xray|x ray|ct|mri|ultrasound|imaging|radiolog|echo|chest)\b/.test(name)) {
+    return "imaging";
+  }
+  return "report";
+}
+
 const PHASE_PROGRESS: Record<Phase, number> = {
   queued: 0,
   uploading: 12,
@@ -121,11 +143,15 @@ export function UploadRecordsDialog({
   onOpenChange,
   patientId,
   onDocumentsChanged,
+  title = "Upload records",
+  description = "Add PDF or CSV files. Type is detected automatically during ingestion and indexed for the assistant.",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   patientId: string;
   onDocumentsChanged: () => Promise<void> | void;
+  title?: string;
+  description?: string;
 }) {
   const inputId = useId();
   const [items, setItems] = useState<QueueItem[]>([]);
@@ -256,12 +282,7 @@ export function UploadRecordsDialog({
       const form = new FormData();
       form.set("file", item.file);
       form.set("patientId", patientId);
-      form.set(
-        "category",
-        item.file.name.toLowerCase().endsWith(".csv")
-          ? "home_monitoring"
-          : "report",
-      );
+      form.set("category", guessUploadCategory(item.file));
 
       try {
         const res = await fetch("/api/uploads/patient-file", {
@@ -346,10 +367,9 @@ export function UploadRecordsDialog({
           <div className="mb-1 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <Upload className="size-5" aria-hidden />
           </div>
-          <DialogTitle className="text-xl">Upload records</DialogTitle>
+          <DialogTitle className="text-xl">{title}</DialogTitle>
           <DialogDescription className="text-[13px] leading-relaxed">
-            Add multiple PDF or CSV files. Each file uploads, then shows ingestion
-            progress until it is indexed for the assistant.
+            {description}
           </DialogDescription>
         </DialogHeader>
 

@@ -6,6 +6,7 @@ import {
   getChatModel,
   getHomeGlucoseReadings,
   getLabTrend,
+  getPatientEncounters,
   insertIntoNote,
   searchPatientRecords,
 } from "@medi-connect/ai";
@@ -114,6 +115,7 @@ export async function POST(req: Request) {
     getActiveMedications: getActiveMedications(patientId),
     getAllergies: getAllergies(patientId),
     getHomeGlucoseReadings: getHomeGlucoseReadings(patientId),
+    getPatientEncounters: getPatientEncounters(patientId),
     checkAllergyConflict: checkAllergyConflict(patientId),
     insertIntoNote: insertIntoNote({ patientId, clinicianId, messageId }),
   };
@@ -125,7 +127,8 @@ Rules:
 - Every clinical claim (a diagnosis, a lab value, a medication, a dose, a date) MUST come from a tool result. Never state a number or date from memory.
 - After each claim, cite it as [Doc #<n>] where n maps to the numbered sources (citationIndex) returned by your most recent tool call. Prefer including document filename when helpful.
 - If no tool result supports an answer, say exactly: "I don't have documentation of that in this patient's record." Do not infer, extrapolate, or fill gaps.
-- Prefer getLabTrend / getActiveMedications / getAllergies / getHomeGlucoseReadings over searchPatientRecords when the question is about a specific value, trend, medication list, allergy, or home glucose — those tools read structured data and are more reliable than semantic search for numbers.
+- Prefer getLabTrend / getActiveMedications / getAllergies / getHomeGlucoseReadings / getPatientEncounters over searchPatientRecords when the question is about a specific value, trend, medication list, allergy, home glucose, or clinical visit/encounter notes — those tools read structured data and are more reliable than semantic search for numbers.
+- Use getPatientEncounters for visit history, clinician notes, prescribed medications mentioned in encounters, and facility events.
 - Before proposing any medication-related note text, call checkAllergyConflict.
 - When the clinician asks you to draft text for the chart, call insertIntoNote with citationDocumentIds from your tool results. Never invent chart text without citations.
 - checkAllergyConflict is decision-support only (simple class/substring match). Always mention that disclaimer when reporting allergy conflict results.`,

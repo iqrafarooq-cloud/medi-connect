@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { FileUp, ShieldAlert, UserPlus } from "lucide-react";
+import { ShieldAlert, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@medi-connect/ui/components/button";
@@ -76,7 +76,6 @@ export function RegisterPatientDialog({
   const [bloodType, setBloodType] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
-  const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkingCnic, setCheckingCnic] = useState(false);
 
@@ -91,7 +90,6 @@ export function RegisterPatientDialog({
     setBloodType("");
     setPhone("");
     setNotes("");
-    setFile(null);
     setLoading(false);
     setCheckingCnic(false);
   }
@@ -156,22 +154,6 @@ export function RegisterPatientDialog({
         setCnicError("This CNIC already exists in the global registry.");
         setLoading(false);
         return;
-      }
-
-      if (file) {
-        const body = new FormData();
-        body.append("file", file);
-        body.append("patientId", result.patient.id);
-        body.append("category", "report");
-        const res = await fetch("/api/uploads/patient-file", {
-          method: "POST",
-          body,
-          credentials: "include",
-        });
-        if (!res.ok) {
-          const data = (await res.json().catch(() => null)) as { error?: string } | null;
-          toast.error(data?.error || "Patient saved, but file upload failed");
-        }
       }
 
       toast.success("Patient registered globally");
@@ -355,36 +337,6 @@ export function RegisterPatientDialog({
                   className="min-h-[5.5rem] rounded-lg shadow-none"
                   placeholder="Optional clinical context for first registration"
                 />
-              </Field>
-
-              <Field label="Report or prescription" htmlFor="reg-file">
-                <label
-                  htmlFor="reg-file"
-                  className={cn(
-                    "flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-border bg-muted/15 px-4 py-3.5 transition-colors hover:border-primary/35 hover:bg-primary/[0.03]",
-                    formLocked && "pointer-events-none opacity-50",
-                  )}
-                >
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-background text-primary ring-1 ring-border">
-                    <FileUp className="size-4" aria-hidden />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium text-foreground">
-                      {file ? file.name : "Upload optional PDF or image"}
-                    </span>
-                    <span className="mt-0.5 block text-[12px] text-muted-foreground">
-                      PDF, JPG, or PNG · can be added later
-                    </span>
-                  </span>
-                  <input
-                    id="reg-file"
-                    type="file"
-                    accept=".pdf,image/jpeg,image/png"
-                    className="sr-only"
-                    disabled={formLocked}
-                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  />
-                </label>
               </Field>
             </section>
           </div>
