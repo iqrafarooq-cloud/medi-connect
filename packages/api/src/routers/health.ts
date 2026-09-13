@@ -10,8 +10,9 @@ import {
   patientHealthMutation,
   procedure,
 } from "@medi-connect/db/schema/clinical";
-import { patientFile, patientRemedyCheck } from "@medi-connect/db/schema/patient";
-import { and, desc, eq } from "drizzle-orm";
+import { patientEncounter, patientFile, patientRemedyCheck } from "@medi-connect/db/schema/patient";
+import { triageCase } from "@medi-connect/db/schema/triage";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
@@ -38,6 +39,7 @@ import {
   type MedicationRow,
   type ProcedureRow,
 } from "../lib/health-facts";
+import { assemblePatientActivity } from "../lib/patient-activity";
 import { requireSessionPatient } from "../lib/require-patient";
 import { createSignedUrl } from "../lib/supabase";
 import {
@@ -208,6 +210,181 @@ async function loadSummary(patientId: string) {
   });
 }
 
+async function loadActivity(patient: {
+  id: string;
+  createdAt: Date;
+  createdByClinicId: string | null;
+}) {
+  const db = createDb();
+  const [
+    diagnoses,
+    allergies,
+    medications,
+    procedures,
+    documents,
+    files,
+    remedyChecks,
+    triageCases,
+    encounters,
+    createdClinicRows,
+  ] = await Promise.all([
+    db
+      .select({
+        id: diagnosis.id,
+        name: diagnosis.name,
+        source: diagnosis.source,
+        createdAt: diagnosis.createdAt,
+      })
+      .from(diagnosis)
+      .where(eq(diagnosis.patientId, patient.id)),
+    db
+      .select({
+        id: extractedAllergy.id,
+        substance: extractedAllergy.substance,
+        source: extractedAllergy.source,
+        createdAt: extractedAllergy.createdAt,
+      })
+      .from(extractedAllergy)
+      .where(eq(extractedAllergy.patientId, patient.id)),
+    db
+      .select({
+        id: extractedMedication.id,
+        name: extractedMedication.name,
+        source: extractedMedication.source,
+        createdAt: extractedMedication.createdAt,
+      })
+      .from(extractedMedication)
+      .where(eq(extractedMedication.patientId, patient.id)),
+    db
+      .select({
+        id: procedure.id,
+        name: procedure.name,
+        facility: procedure.facility,
+        source: procedure.source,
+        createdAt: procedure.createdAt,
+      })
+      .from(procedure)
+      .where(eq(procedure.patientId, patient.id)),
+    db
+      .select({
+        id: clinicalDocument.id,
+        originalFilename: clinicalDocument.originalFilename,
+        createdAt: clinicalDocument.createdAt,
+        patientFileId: clinicalDocument.patientFileId,
+        storageBucket: clinicalDocument.storageBucket,
+        storagePath: clinicalDocument.storagePath,
+      })
+      .from(clinicalDocument)
+      .where(eq(clinicalDocument.patientId, patient.id)),
+    db
+      .select({
+        id: patientFile.id,
+        uploadedByClinicId: patientFile.uploadedByClinicId,
+        bucket: patientFile.bucket,
+        storagePath: patientFile.storagePath,
+      })
+      .from(patientFile)
+      .where(eq(patientFile.patientId, patient.id)),
+    db
+      .select({
+        id: patientRemedyCheck.id,
+        severity: patientRemedyCheck.severity,
+        summary: patientRemedyCheck.summary,
+        createdAt: patientRemedyCheck.createdAt,
+      })
+      .from(patientRemedyCheck)
+      .where(eq(patientRemedyCheck.patientId, patient.id))
+      .orderBy(desc(patientRemedyCheck.createdAt)),
+    db
+      .select({
+        id: triageCase.id,
+        clinicId: triageCase.clinicId,
+        status: triageCase.status,
+        complaint: triageCase.complaint,
+        createdAt: triageCase.createdAt,
+      })
+      .from(triageCase)
+      .where(eq(triageCase.patientId, patient.id)),
+    db
+      .select({
+        id: patientEncounter.id,
+        clinicId: patientEncounter.clinicId,
+        facility: patientEncounter.facility,
+        title: patientEncounter.title,
+        occurredAt: patientEncounter.occurredAt,
+      })
+      .from(patientEncounter)
+      .where(eq(patientEncounter.patientId, patient.id)),
+    patient.createdByClinicId
+      ? db
+          .select({
+            id: clinic.id,
+            name: clinic.name,
+            type: clinic.type,
+            city: clinic.city,
+          })
+          .from(clinic)
+          .where(eq(clinic.id, patient.createdByClinicId))
+          .limit(1)
+      : Promise.resolve([]),
+  ]);
+
+  const fileById = new Map(files.map((file) => [file.id, file]));
+  const fileByPath = new Map(files.map((file) => [`${file.bucket}:${file.storagePath}`, file]));
+
+  const mappedDocuments = documents.map((doc) => {
+    const byId = doc.patientFileId ? fileById.get(doc.patientFileId) : undefined;
+    const byPath = fileByPath.get(`${doc.storageBucket}:${doc.storagePath}`);
+    return {
+      id: doc.id,
+      originalFilename: doc.originalFilename,
+      createdAt: doc.createdAt,
+      uploadedByClinicId: byId?.uploadedByClinicId ?? byPath?.uploadedByClinicId ?? null,
+    };
+  });
+
+  const clinicIds = new Set<string>();
+  if (patient.createdByClinicId) clinicIds.add(patient.createdByClinicId);
+  for (const row of mappedDocuments) {
+    if (row.uploadedByClinicId) clinicIds.add(row.uploadedByClinicId);
+  }
+  for (const row of triageCases) clinicIds.add(row.clinicId);
+  for (const row of encounters) {
+    if (row.clinicId) clinicIds.add(row.clinicId);
+  }
+
+  const extraIds = [...clinicIds].filter((id) => id !== createdClinicRows[0]?.id);
+  const extraClinics =
+    extraIds.length > 0
+      ? await db
+          .select({
+            id: clinic.id,
+            name: clinic.name,
+            type: clinic.type,
+            city: clinic.city,
+          })
+          .from(clinic)
+          .where(inArray(clinic.id, extraIds))
+      : [];
+
+  const clinics = [...createdClinicRows, ...extraClinics];
+  const createdByClinic = createdClinicRows[0] ?? null;
+
+  return assemblePatientActivity({
+    registeredAt: patient.createdAt,
+    createdByClinic,
+    diagnoses,
+    allergies,
+    medications,
+    procedures,
+    documents: mappedDocuments,
+    remedyChecks,
+    triageCases,
+    encounters,
+    clinics,
+  });
+}
+
 async function findMutation(patientId: string, idempotencyKey: string) {
   const db = createDb();
   const rows = await db
@@ -334,6 +511,24 @@ export const healthRouter = {
       outcome: "allowed",
     });
     return summary;
+  }),
+
+  activity: protectedProcedure.handler(async ({ context }) => {
+    const profile = await requireSessionPatient(context.session.user.id);
+    const activity = await loadActivity({
+      id: profile.id,
+      createdAt: profile.createdAt,
+      createdByClinicId: profile.createdByClinicId,
+    });
+    await logAccess({
+      actorUserId: context.session.user.id,
+      action: "health.activity",
+      resourceType: "patient",
+      resourceId: profile.id,
+      patientId: profile.id,
+      outcome: "allowed",
+    });
+    return activity;
   }),
 
   getDetail: protectedProcedure

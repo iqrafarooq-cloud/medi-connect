@@ -2,23 +2,26 @@ import { Ionicons } from "@expo/vector-icons";
 import type { NearbyClinic } from "@medi-connect/api/lib/health-remedy";
 import { Pressable, Text, View } from "react-native";
 
-import { formatClinicDistance } from "@/lib/clinic-map";
+import { clinicQueueButton, formatClinicDistance } from "@/lib/clinic-map";
 import { palette } from "@/theme";
 
 export function ClinicRow({
   clinic,
   selected,
-  enRoute,
+  queuedClinicId,
   onSelect,
   onWay,
 }: {
   clinic: NearbyClinic;
   selected: boolean;
-  enRoute: boolean;
+  queuedClinicId: string | null;
   onSelect: () => void;
   onWay: () => void;
 }) {
   const distance = formatClinicDistance(clinic.distanceKm);
+  const action = clinicQueueButton(clinic.id, queuedClinicId);
+  const label =
+    action === "here" ? "In this queue" : action === "blocked" ? "Already in a queue" : "On the way";
 
   return (
     <Pressable
@@ -51,17 +54,25 @@ export function ClinicRow({
       </View>
       <Pressable
         onPress={onWay}
-        disabled={enRoute}
+        disabled={action !== "join"}
         className="mt-3 h-11 items-center justify-center rounded-xl"
-        style={{ backgroundColor: enRoute ? "rgba(5, 150, 105, 0.16)" : palette.primary }}
+        style={{
+          backgroundColor: action === "join" ? palette.primary : "rgba(5, 150, 105, 0.16)",
+        }}
         accessibilityRole="button"
-        accessibilityLabel={enRoute ? `In the queue at ${clinic.name}` : `On the way to ${clinic.name}`}
+        accessibilityLabel={
+          action === "here"
+            ? `In the queue at ${clinic.name}`
+            : action === "blocked"
+              ? "Already in another clinic queue"
+              : `On the way to ${clinic.name}`
+        }
       >
         <Text
           className="text-[15px] font-semibold"
-          style={{ color: enRoute ? palette.primary : palette.white }}
+          style={{ color: action === "join" ? palette.white : palette.primary }}
         >
-          {enRoute ? "In this queue" : "On the way"}
+          {label}
         </Text>
       </Pressable>
     </Pressable>

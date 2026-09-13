@@ -12,7 +12,8 @@ import * as Location from "expo-location";
 import { useLocalSearchParams } from "expo-router";
 import { Spinner, useThemeColor, useToast } from "heroui-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, Alert, Text, TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import MapView, { Marker, PROVIDER_GOOGLE, type Region } from "react-native-maps";
 
 import { ClinicRow } from "@/components/clinic/clinic-row";
@@ -145,6 +146,13 @@ export default function ClinicMapScreen() {
   }
 
   function openWay(clinic: NearbyClinic) {
+    if (queue.data && queue.data.clinicId !== clinic.id) {
+      toast.show({
+        variant: "danger",
+        label: `You're already in the queue at ${queue.data.clinicName}. Leave that queue first.`,
+      });
+      return;
+    }
     setSelectedId(clinic.id);
     setConfirm(clinic);
     setMinutes(
@@ -157,6 +165,13 @@ export default function ClinicMapScreen() {
 
   async function confirmWay() {
     if (!confirm || busy) return;
+    if (queue.data && queue.data.clinicId !== confirm.id) {
+      toast.show({
+        variant: "danger",
+        label: `You're already in the queue at ${queue.data.clinicName}. Leave that queue first.`,
+      });
+      return;
+    }
     setBusy(true);
     try {
       await client.triage.joinFromPatient({
@@ -179,6 +194,39 @@ export default function ClinicMapScreen() {
     }
   }
 
+  function requestLeave() {
+    if (!queue.data || busy) return;
+    Alert.alert(
+      "Leave this queue?",
+      `The clinic will no longer see you inbound at ${queue.data.clinicName}.`,
+      [
+        { text: "Stay", style: "cancel" },
+        { text: "Leave queue", style: "destructive", onPress: () => void leaveQueue() },
+      ],
+    );
+  }
+
+  async function leaveQueue() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const result = await client.triage.leaveQueue();
+      await queryClient.invalidateQueries({ queryKey: orpc.triage.myQueue.queryOptions().queryKey });
+      setConfirm(null);
+      toast.show({
+        variant: "success",
+        label: result.left ? `You left the queue at ${result.clinicName}` : "You're not in a queue",
+      });
+    } catch (error) {
+      toast.show({
+        variant: "danger",
+        label: getRpcErrorMessage(error, "Could not leave the clinic queue"),
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const emptyMessage = !nearby.data?.length
     ? "No enrolled clinic is listed yet."
     : "No enrolled clinic matches that search.";
@@ -188,11 +236,15 @@ export default function ClinicMapScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScrollView
+      <KeyboardAwareScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 24 }}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
         showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
+        bottomOffset={24}
+        extraKeyboardSpace={16}
       >
         <View className="px-4 pt-2">
           <View className="flex-row items-center rounded-2xl border border-border bg-surface px-3.5" style={{ height: 52 }}>
@@ -254,7 +306,12 @@ export default function ClinicMapScreen() {
 
         {queue.data ? (
           <View className="mt-3">
-            <QueueStatusCard clinicName={queue.data.clinicName} minutesLeft={etaMinutes} />
+            <QueueStatusCard
+              clinicName={queue.data.clinicName}
+              minutesLeft={etaMinutes}
+              onLeave={requestLeave}
+              leaving={busy}
+            />
           </View>
         ) : null}
 
@@ -305,7 +362,7 @@ export default function ClinicMapScreen() {
                   key={clinic.id}
                   clinic={clinic}
                   selected={selectedId === clinic.id}
-                  enRoute={queue.data?.clinicId === clinic.id}
+                  queuedClinicId={queue.data?.clinicId ?? null}
                   onSelect={() => selectClinic(clinic)}
                   onWay={() => openWay(clinic)}
                 />
@@ -313,7 +370,7 @@ export default function ClinicMapScreen() {
             </View>
           )}
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </View>
   );
 }

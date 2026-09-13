@@ -14,6 +14,7 @@ import { RemedySuggestionList } from "@/components/health/remedy-cards";
 import { KeyboardFormShell } from "@/components/keyboard-form-shell";
 import { PrimaryButton } from "@/components/primary-button";
 import { getRpcErrorMessage } from "@/lib/form-errors";
+import { finishRemedy, remedyResultNav } from "@/lib/remedy-nav";
 import { palette } from "@/theme";
 import { client, orpc, queryClient } from "@/utils/orpc";
 
@@ -87,16 +88,14 @@ export default function RemedyScreen() {
   if (result) {
     const severe = result.severity === "severe";
     const mark = severityStyle(result.severity);
+    const action = remedyResultNav(result.severity);
     return (
       <KeyboardFormShell
         title="Feeling unwell"
-        onBack={() => router.back()}
+        onBack={() => finishRemedy(router, "health")}
         footer={
-          <PrimaryButton
-            size="lg"
-            onPress={() => router.replace({ pathname: "/(app)/clinic", params: { focus: "nearby" } })}
-          >
-            <PrimaryButton.Label>Find a clinic</PrimaryButton.Label>
+          <PrimaryButton size="lg" onPress={() => finishRemedy(router, action.after)}>
+            <PrimaryButton.Label>{action.label}</PrimaryButton.Label>
           </PrimaryButton>
         }
       >
@@ -113,11 +112,10 @@ export default function RemedyScreen() {
         </Text>
         <Text className="mt-2 text-[15px] leading-6 text-muted">{result.summary}</Text>
         {severe ? (
-          <View className="mt-5 rounded-2xl border border-border bg-surface px-4 py-4">
-            <Text className="text-[15px] leading-6 text-foreground">
-              Nearby enrolled clinics are on the Clinic tab. Call emergency services if you cannot wait.
-            </Text>
-          </View>
+          <Text className="mt-5 text-[15px] leading-6 text-muted">
+            Open Clinic to pick a nearby enrolled facility and tell them you’re on the way. Call
+            emergency services if you cannot wait.
+          </Text>
         ) : (
           <View className="mt-5">
             <RemedySuggestionList suggestions={result.suggestions} />

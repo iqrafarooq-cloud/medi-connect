@@ -5,6 +5,7 @@ import {
   fitMapToClinics,
   formatClinicDistance,
   formatQueueStatus,
+  clinicQueueButton,
   LAHORE_REGION,
   minutesUntilEta,
   originIsNearby,
@@ -44,6 +45,17 @@ describe("fitMapToClinics", () => {
 describe("formatQueueStatus", () => {
   it("names the hospital the patient joined", () => {
     assert.equal(formatQueueStatus("City General Hospital"), "You're in the queue at City General Hospital");
+  });
+});
+
+describe("clinicQueueButton", () => {
+  it("lets the patient join when they are not queued", () => {
+    assert.equal(clinicQueueButton("a", null), "join");
+  });
+
+  it("marks the current clinic and blocks every other clinic", () => {
+    assert.equal(clinicQueueButton("a", "a"), "here");
+    assert.equal(clinicQueueButton("b", "a"), "blocked");
   });
 });
 
