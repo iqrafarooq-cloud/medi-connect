@@ -661,7 +661,6 @@ export default function EmergencyTriagePage() {
               <span className="text-xs text-muted-foreground">{cases.length} active</span>
             </div>
 
-<<<<<<< Updated upstream
             {cases.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border bg-muted/40 px-4 py-8 text-center text-sm text-muted-foreground">
                 Queue empty. Add a case when a patient is en route or at intake.
@@ -820,128 +819,6 @@ export default function EmergencyTriagePage() {
                 })}
               </ul>
             )}
-=======
-            <ul className="space-y-2.5">
-              {queue.map((patient) => {
-                const tone = ESI[patient.esi];
-                const selected = selectedId === patient.id;
-                const eta = etas[patient.id] ?? patient.etaSeconds;
-                return (
-                  <li key={patient.id}>
-                    <article
-                      className={cn(
-                        "w-full overflow-hidden rounded-xl border bg-card text-left transition-shadow",
-                        selected
-                          ? "border-primary/40 shadow-sm ring-1 ring-primary/15"
-                          : "border-border hover:border-primary/25",
-                      )}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setSelectedId(patient.id)}
-                        aria-pressed={selected}
-                        className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                      >
-                        <div
-                          className={cn(
-                            "flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 text-white sm:px-3.5",
-                            tone.bar,
-                          )}
-                        >
-                          <span className="text-[11px] font-medium tracking-wide sm:text-xs">
-                            ESI {patient.esi} · {patient.esiLabel}
-                            <span className="mx-1.5 opacity-50">|</span>
-                            {patient.unit}
-                          </span>
-                          <span className="inline-flex items-center gap-1 rounded bg-black/20 px-2 py-0.5 font-heading text-xs font-semibold tabular-nums">
-                            <Clock3 className="size-3 opacity-80" />
-                            {formatEta(eta)}
-                          </span>
-                        </div>
-
-                        <div className="space-y-3 px-3 py-3 sm:px-3.5">
-                          <div className="flex gap-3">
-                            <div
-                              className={cn(
-                                "flex size-10 shrink-0 items-center justify-center rounded-md font-heading text-xs font-bold",
-                                tone.chip,
-                              )}
-                            >
-                              {patient.initials}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-baseline gap-x-2">
-                                <p className="font-heading text-base font-semibold">{patient.name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {patient.age}
-                                  {patient.gender} · {patient.mrn}
-                                </p>
-                              </div>
-                              <p
-                                className={cn(
-                                  "text-sm font-medium",
-                                  patient.esi === 1 && tone.eta,
-                                )}
-                              >
-                                {patient.complaint}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {patient.blood} · {patient.bayHint} · {patient.category}
-                              </p>
-                            </div>
-                          </div>
-
-                          {selected ? (
-                            <div className="space-y-3 border-t border-border pt-3">
-                              <div className={cn("grid grid-cols-4 gap-1.5 rounded-lg p-2", tone.soft)}>
-                                <p className="col-span-4 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                                  <HeartPulse className="size-3" />
-                                  {patient.vitalsLabel}
-                                </p>
-                                {patient.vitals.map((v) => (
-                                  <div key={v.label} className="rounded-md bg-card px-2 py-1.5">
-                                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                                      {v.label}
-                                    </p>
-                                    <p
-                                      className={cn(
-                                        "font-heading text-sm font-semibold tabular-nums",
-                                        v.alert && "text-destructive",
-                                      )}
-                                    >
-                                      {v.value}
-                                    </p>
-                                  </div>
-                                ))}
-                              </div>
-
-                              {patient.aiInsight ? (
-                                <p className="rounded-lg bg-accent/70 px-3 py-2 text-xs leading-relaxed text-accent-foreground sm:text-sm">
-                                  <span className="font-medium text-primary">CDS AI · </span>
-                                  {patient.aiInsight}
-                                </p>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
-                      </button>
-
-                      {selected ? (
-                        <div className="flex flex-wrap gap-2 border-t border-border px-3 py-3 sm:px-3.5">
-                          <Button size="sm" variant="outline" className="h-8" disabled>
-                            {patient.secondaryAction}
-                          </Button>
-                          <Button size="sm" className="h-8" disabled>
-                            {patient.primaryAction}
-                          </Button>
-                        </div>
-                      ) : null}
-                    </article>
-                  </li>
-                );
-              })}
-            </ul>
->>>>>>> Stashed changes
           </section>
 
           <aside className="space-y-4 xl:sticky xl:top-3 xl:self-start">

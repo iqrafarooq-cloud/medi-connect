@@ -1,10 +1,6 @@
 import { auth } from "@medi-connect/auth";
 import { createDb } from "@medi-connect/db";
-<<<<<<< Updated upstream
 import { user } from "@medi-connect/db/schema/auth";
-import { clinic } from "@medi-connect/db/schema/clinic";
-=======
->>>>>>> Stashed changes
 import { patient, patientFile } from "@medi-connect/db/schema/patient";
 import { desc, eq, ilike } from "drizzle-orm";
 import { ORPCError } from "@orpc/server";
@@ -20,17 +16,6 @@ import {
 import { requireActiveClinic } from "../lib/require-clinic";
 import { createSignedUrl } from "../lib/supabase";
 
-<<<<<<< Updated upstream
-async function requireClinic(userId: string) {
-  const db = createDb();
-  const rows = await db.select().from(clinic).where(eq(clinic.ownerUserId, userId)).limit(1);
-  const row = rows[0];
-  if (!row) {
-    throw new ORPCError("FORBIDDEN", { message: "Complete clinic registration first" });
-  }
-  return row;
-}
-
 function getAuthErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
     return error.message;
@@ -38,8 +23,6 @@ function getAuthErrorMessage(error: unknown): string {
   return "Could not create account";
 }
 
-=======
->>>>>>> Stashed changes
 export const patientRouter = {
   selfRegister: publicProcedure
     .input(
