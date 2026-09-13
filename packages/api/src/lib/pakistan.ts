@@ -38,3 +38,48 @@ export function normalizePakistanPhone(input: string): string | null {
 export function isValidPakistanPhone(input: string): boolean {
   return normalizePakistanPhone(input) !== null;
 }
+
+/** Display stored +92XXXXXXXXXX as 03XX XXXXXXX */
+export function formatPakistanPhone(e164: string): string {
+  const digits = e164.replace(/\D/g, "");
+  if (digits.startsWith("92") && digits.length === 12) {
+    return `0${digits.slice(2, 5)} ${digits.slice(5)}`;
+  }
+  return e164;
+}
+
+/** Mask CNIC while typing: xxxxx-xxxxxxx-x */
+export function maskCnicInput(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 13);
+  if (digits.length <= 5) return digits;
+  if (digits.length <= 12) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+  return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
+}
+
+/**
+ * Validate calendar date of birth as YYYY-MM-DD.
+ * Rejects impossible dates, future dates, and ages over 120.
+ */
+export function parseIsoDateOfBirth(input: string, now = new Date()): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(input.trim());
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  if (date.getTime() > todayUtc) return null;
+  const oldest = Date.UTC(now.getUTCFullYear() - 120, now.getUTCMonth(), now.getUTCDate());
+  if (date.getTime() < oldest) return null;
+  return `${match[1]}-${match[2]}-${match[3]}`;
+}
+
+export const CNIC_ALREADY_REGISTERED =
+  "This CNIC is already in the system. Log in or contact your clinic.";

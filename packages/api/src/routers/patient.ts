@@ -1,14 +1,18 @@
+import { auth } from "@medi-connect/auth";
 import { createDb } from "@medi-connect/db";
+import { user } from "@medi-connect/db/schema/auth";
 import { clinic } from "@medi-connect/db/schema/clinic";
 import { patient, patientFile } from "@medi-connect/db/schema/patient";
 import { desc, eq, ilike } from "drizzle-orm";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
-import { protectedProcedure } from "../index";
+import { protectedProcedure, publicProcedure } from "../index";
 import {
+  CNIC_ALREADY_REGISTERED,
   normalizeCnic,
   normalizePakistanPhone,
+  parseIsoDateOfBirth,
 } from "../lib/pakistan";
 import { createSignedUrl } from "../lib/supabase";
 
@@ -22,7 +26,115 @@ async function requireClinic(userId: string) {
   return row;
 }
 
+function getAuthErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return "Could not create account";
+}
+
 export const patientRouter = {
+  selfRegister: publicProcedure
+    .input(
+      z.object({
+        fullName: z.string().trim().min(2).max(120),
+        email: z.string().trim().email().max(254),
+        password: z.string().min(8).max(128),
+        phone: z.string().min(10),
+        cnic: z.string().min(5),
+        dateOfBirth: z.string().min(8),
+        gender: z.enum(["male", "female", "other"]),
+      }),
+    )
+    .handler(async ({ input }) => {
+      const cnic = normalizeCnic(input.cnic);
+      if (!cnic) {
+        throw new ORPCError("BAD_REQUEST", { message: "CNIC must be 13 digits" });
+      }
+
+      const phone = normalizePakistanPhone(input.phone);
+      if (!phone) {
+        throw new ORPCError("BAD_REQUEST", { message: "Enter a valid Pakistan mobile number" });
+      }
+
+      const dateOfBirth = parseIsoDateOfBirth(input.dateOfBirth);
+      if (!dateOfBirth) {
+        throw new ORPCError("BAD_REQUEST", { message: "Enter a valid date of birth" });
+      }
+
+      const db = createDb();
+      const existing = await db.select({ id: patient.id }).from(patient).where(eq(patient.cnic, cnic)).limit(1);
+      if (existing[0]) {
+        throw new ORPCError("CONFLICT", { message: CNIC_ALREADY_REGISTERED });
+      }
+
+      let createdUserId: string | undefined;
+      try {
+        const result = await auth.api.signUpEmail({
+          body: {
+            name: input.fullName.trim(),
+            email: input.email.trim().toLowerCase(),
+            password: input.password,
+          },
+        });
+
+        if (!result.user?.id) {
+          throw new ORPCError("BAD_REQUEST", { message: "Could not create account" });
+        }
+
+        createdUserId = result.user.id;
+
+        await db.update(user).set({ role: "patient" }).where(eq(user.id, createdUserId));
+
+        await db.insert(patient).values({
+          id: crypto.randomUUID(),
+          cnic,
+          fullName: input.fullName.trim(),
+          dateOfBirth,
+          gender: input.gender,
+          phone,
+          userId: createdUserId,
+          createdByUserId: createdUserId,
+          createdByClinicId: null,
+        });
+
+        return { ok: true as const };
+      } catch (error) {
+        if (createdUserId) {
+          await db.delete(user).where(eq(user.id, createdUserId));
+        }
+        if (error instanceof ORPCError) {
+          throw error;
+        }
+        if (createdUserId) {
+          throw new ORPCError("CONFLICT", { message: CNIC_ALREADY_REGISTERED });
+        }
+        const message = getAuthErrorMessage(error);
+        const isDuplicate = /already exists|unique|duplicate/i.test(message);
+        throw new ORPCError(isDuplicate ? "CONFLICT" : "BAD_REQUEST", {
+          message: isDuplicate
+            ? "An account with this email already exists. Log in instead."
+            : message,
+        });
+      }
+    }),
+
+  me: protectedProcedure.handler(async ({ context }) => {
+    const db = createDb();
+    const rows = await db
+      .select()
+      .from(patient)
+      .where(eq(patient.userId, context.session.user.id))
+      .limit(1);
+    if (!rows[0]) {
+      throw new ORPCError("NOT_FOUND", { message: "Patient profile not found" });
+    }
+    return {
+      ...rows[0],
+      email: context.session.user.email,
+    };
+  }),
+
   searchByCnic: protectedProcedure
     .input(z.object({ cnic: z.string().min(5) }))
     .handler(async ({ context, input }) => {

@@ -17,12 +17,11 @@ export const patient = pgTable(
     emergencyContactName: text("emergency_contact_name"),
     emergencyContactPhone: text("emergency_contact_phone"),
     notes: text("notes"),
+    userId: text("user_id").references(() => user.id),
     createdByUserId: text("created_by_user_id")
       .notNull()
       .references(() => user.id),
-    createdByClinicId: text("created_by_clinic_id")
-      .notNull()
-      .references(() => clinic.id),
+    createdByClinicId: text("created_by_clinic_id").references(() => clinic.id),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -31,6 +30,7 @@ export const patient = pgTable(
   },
   (table) => [
     uniqueIndex("patient_cnic_uidx").on(table.cnic),
+    uniqueIndex("patient_user_id_uidx").on(table.userId),
     index("patient_full_name_idx").on(table.fullName),
   ],
 );
@@ -63,9 +63,15 @@ export const patientFile = pgTable(
 );
 
 export const patientRelations = relations(patient, ({ one, many }) => ({
+  linkedUser: one(user, {
+    fields: [patient.userId],
+    references: [user.id],
+    relationName: "patientAccount",
+  }),
   createdByUser: one(user, {
     fields: [patient.createdByUserId],
     references: [user.id],
+    relationName: "patientCreatedBy",
   }),
   createdByClinic: one(clinic, {
     fields: [patient.createdByClinicId],

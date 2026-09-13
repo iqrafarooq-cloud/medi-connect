@@ -5,8 +5,10 @@ import {
   formatCnic,
   isValidCnic,
   isValidPakistanPhone,
+  maskCnicInput,
   normalizeCnic,
   normalizePakistanPhone,
+  parseIsoDateOfBirth,
 } from "./pakistan.ts";
 
 describe("normalizeCnic", () => {
@@ -22,6 +24,10 @@ describe("normalizeCnic", () => {
   });
   it("formats for display", () => {
     assert.equal(formatCnic("4210112345671"), "42101-1234567-1");
+  });
+  it("masks while typing", () => {
+    assert.equal(maskCnicInput("421011"), "42101-1");
+    assert.equal(maskCnicInput("4210112345671"), "42101-1234567-1");
   });
 });
 
@@ -40,3 +46,21 @@ describe("normalizePakistanPhone", () => {
     assert.equal(isValidPakistanPhone("0211234567"), false);
   });
 });
+
+describe("parseIsoDateOfBirth", () => {
+  const now = new Date("2026-09-13T00:00:00.000Z");
+
+  it("accepts a valid past date", () => {
+    assert.equal(parseIsoDateOfBirth("1990-04-12", now), "1990-04-12");
+  });
+  it("rejects impossible calendar dates", () => {
+    assert.equal(parseIsoDateOfBirth("2020-02-30", now), null);
+  });
+  it("rejects future dates", () => {
+    assert.equal(parseIsoDateOfBirth("2026-09-14", now), null);
+  });
+  it("rejects ages over 120", () => {
+    assert.equal(parseIsoDateOfBirth("1900-01-01", now), null);
+  });
+});
+

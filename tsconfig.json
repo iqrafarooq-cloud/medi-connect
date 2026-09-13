@@ -1,3 +1,5 @@
 {
-  "extends": "@medi-connect/config/tsconfig.base.json"
+  "extends": "@medi-connect/config/tsconfig.base.json",
+  "files": [],
+  "include": []
 }
