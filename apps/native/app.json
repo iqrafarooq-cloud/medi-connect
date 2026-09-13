@@ -9,7 +9,13 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.medi-connect"
+      "bundleIdentifier": "com.anonymous.medi-connect",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        },
+        "NSLocalNetworkUsageDescription": "MediConnect uses your local network to reach the development API."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +25,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.mediconnect"
+      "package": "com.anonymous.mediconnect",
+      "usesCleartextTraffic": true
     },
     "web": {
       "bundler": "metro",

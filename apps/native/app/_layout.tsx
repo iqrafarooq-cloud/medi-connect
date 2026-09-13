@@ -1,3 +1,4 @@
+import "@/lib/install-crypto";
 import "@/global.css";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
