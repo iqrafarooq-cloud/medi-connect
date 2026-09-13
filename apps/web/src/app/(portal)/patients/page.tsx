@@ -29,6 +29,7 @@ import {
 import { PortalButtonSpinner, PortalTableSkeleton } from "@/components/portal/portal-loading";
 import { RegisterPatientDialog } from "@/components/portal/register-patient-dialog";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { formatPakistanPhone } from "@medi-connect/api/lib/pakistan";
 
 import { client } from "@/utils/orpc";
 
@@ -203,7 +204,9 @@ export default function PatientsPage() {
                       <TableCell className="font-mono text-xs tabular-nums sm:text-sm">
                         {formatCnic(row.cnic)}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{row.phone ?? "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {row.phone ? formatPakistanPhone(row.phone) : "—"}
+                      </TableCell>
                       <TableCell>
                         <div>{genderLabel(row.gender)}</div>
                         <div className="text-xs text-muted-foreground">DOB {row.dateOfBirth}</div>

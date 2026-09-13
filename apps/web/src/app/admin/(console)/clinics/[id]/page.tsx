@@ -19,6 +19,7 @@ import { Skeleton } from "@medi-connect/ui/components/skeleton";
 
 import { AdminSpinner, ButtonSpinner } from "@/components/admin/admin-spinner";
 import { ClinicStatusBadge } from "@/components/admin/clinic-status-badge";
+import { formatPakistanPhone } from "@medi-connect/api/lib/pakistan";
 import { client } from "@/utils/orpc";
 
 type ClinicDetail = {
@@ -224,7 +225,7 @@ export default function AdminClinicDetailPage() {
         <h2 className="font-heading text-lg font-semibold tracking-tight">Owner contact</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <Detail label="Name" value={clinic.ownerName} />
-          <Detail label="Phone" value={clinic.phone} />
+          <Detail label="Phone" value={formatPakistanPhone(clinic.phone)} />
           <Detail label="Email" value={clinic.ownerEmail} className="sm:col-span-2" />
         </div>
       </section>

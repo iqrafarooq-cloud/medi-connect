@@ -31,6 +31,7 @@ import { cn } from "@medi-connect/ui/lib/utils";
 
 import { PortalButtonSpinner } from "@/components/portal/portal-loading";
 
+import { maskPakistanPhoneInput } from "@medi-connect/api/lib/pakistan";
 import { client } from "@/utils/orpc";
 
 type ExistingPatient = { id: string; fullName: string; cnic: string };
@@ -306,14 +307,16 @@ export function RegisterPatientDialog({
                     </SelectContent>
                   </Select>
                 </Field>
-                <Field label="Phone (+92)" htmlFor="reg-phone">
+                <Field label="Phone" htmlFor="reg-phone">
                   <Input
                     id="reg-phone"
                     className="h-11 rounded-lg shadow-none"
                     disabled={formLocked}
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="03XX XXXXXXX"
+                    onChange={(e) => setPhone(maskPakistanPhoneInput(e.target.value))}
+                    placeholder="03XX-XXXXXXX"
+                    inputMode="tel"
+                    autoComplete="tel"
                   />
                 </Field>
                 <Field label="Blood type" htmlFor="reg-blood">

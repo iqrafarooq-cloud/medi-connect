@@ -4,6 +4,7 @@ import {
   isValidCnic,
   isValidPakistanPhone,
   maskCnicInput,
+  maskPakistanPhoneInput,
   parseIsoDateOfBirth,
 } from "@/lib/pakistan";
 import { useRouter } from "expo-router";
@@ -385,8 +386,8 @@ export default function SignUpScreen() {
                 <Input
                   value={field.state.value}
                   onBlur={field.handleBlur}
-                  onChangeText={field.handleChange}
-                  placeholder="03XX XXXXXXX"
+                  onChangeText={(text) => field.handleChange(maskPakistanPhoneInput(text))}
+                  placeholder="03XX-XXXXXXX"
                   keyboardType="phone-pad"
                   autoComplete="tel"
                   textContentType="telephoneNumber"

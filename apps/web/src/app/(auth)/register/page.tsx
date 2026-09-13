@@ -24,6 +24,7 @@ import {
   type ClinicLocationValue,
 } from "@/components/clinic-location-picker";
 import { authClient } from "@/lib/auth-client";
+import { maskPakistanPhoneInput } from "@medi-connect/api/lib/pakistan";
 import { client } from "@/utils/orpc";
 
 type FormState = {
@@ -239,13 +240,15 @@ export default function RegisterPage() {
               <p className="text-xs text-muted-foreground">At least 8 characters.</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Pakistan phone</Label>
+              <Label htmlFor="phone">Phone</Label>
               <Input
                 id="phone"
                 className="h-11"
                 value={form.phone}
-                onChange={(e) => update("phone", e.target.value)}
-                placeholder="03XX XXXXXXX"
+                onChange={(e) => update("phone", maskPakistanPhoneInput(e.target.value))}
+                placeholder="03XX-XXXXXXX"
+                inputMode="tel"
+                autoComplete="tel"
               />
             </div>
           </div>

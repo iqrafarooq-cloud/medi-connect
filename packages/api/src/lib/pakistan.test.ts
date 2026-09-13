@@ -9,6 +9,8 @@ import {
   normalizeCnic,
   normalizePakistanPhone,
   parseIsoDateOfBirth,
+  formatPakistanPhone,
+  maskPakistanPhoneInput,
 } from "./pakistan.ts";
 
 describe("normalizeCnic", () => {
@@ -44,6 +46,15 @@ describe("normalizePakistanPhone", () => {
   it("rejects invalid", () => {
     assert.equal(normalizePakistanPhone("12345"), null);
     assert.equal(isValidPakistanPhone("0211234567"), false);
+  });
+  it("formats display as 03XX-XXXXXXX", () => {
+    assert.equal(formatPakistanPhone("+923001234567"), "0300-1234567");
+    assert.equal(formatPakistanPhone("03001234567"), "0300-1234567");
+  });
+  it("masks while typing", () => {
+    assert.equal(maskPakistanPhoneInput("0300123"), "0300-123");
+    assert.equal(maskPakistanPhoneInput("03001234567"), "0300-1234567");
+    assert.equal(maskPakistanPhoneInput("+923001234567"), "0300-1234567");
   });
 });
 
