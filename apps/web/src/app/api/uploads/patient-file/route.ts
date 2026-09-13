@@ -1,6 +1,5 @@
 import { auth } from "@medi-connect/auth";
 import { createDb } from "@medi-connect/db";
-import { clinic } from "@medi-connect/db/schema/clinic";
 import { patient, patientFile } from "@medi-connect/db/schema/patient";
 import { clinicalDocument } from "@medi-connect/db/schema/clinical";
 import {
@@ -11,6 +10,8 @@ import {
   safeFileName,
   uploadObject,
 } from "@medi-connect/api/lib/supabase";
+import { CLINIC_STATUS } from "@medi-connect/api/lib/clinic-verification";
+import { findClinicByOwner } from "@medi-connect/api/lib/require-clinic";
 import { ingestDocumentById } from "@medi-connect/ai";
 import { eq } from "drizzle-orm";
 import { after } from "next/server";
@@ -69,14 +70,12 @@ export async function POST(request: Request) {
   }
 
   const db = createDb();
-  const facilityRows = await db
-    .select()
-    .from(clinic)
-    .where(eq(clinic.ownerUserId, session.user.id))
-    .limit(1);
-  const facility = facilityRows[0];
-  if (!facility) {
-    return NextResponse.json({ error: "Register clinic profile first" }, { status: 403 });
+  const facility = await findClinicByOwner(session.user.id);
+  if (!facility || facility.status !== CLINIC_STATUS.ACTIVE) {
+    return NextResponse.json(
+      { error: "Clinic must be approved before using the portal" },
+      { status: 403 },
+    );
   }
 
   const patientRows = await db.select().from(patient).where(eq(patient.id, patientId)).limit(1);

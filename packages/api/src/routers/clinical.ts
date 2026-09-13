@@ -1,24 +1,14 @@
 import { createDb } from "@medi-connect/db";
 import { clinicalDocument, noteInsertion } from "@medi-connect/db/schema/clinical";
 import { patient } from "@medi-connect/db/schema/patient";
-import { clinic } from "@medi-connect/db/schema/clinic";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
 import { protectedProcedure } from "../index";
 import { logAccess } from "../lib/audit";
+import { requireActiveClinic } from "../lib/require-clinic";
 import { createSignedUrl } from "../lib/supabase";
-
-async function requireClinic(userId: string) {
-  const db = createDb();
-  const rows = await db.select().from(clinic).where(eq(clinic.ownerUserId, userId)).limit(1);
-  const row = rows[0];
-  if (!row) {
-    throw new ORPCError("FORBIDDEN", { message: "Complete clinic registration first" });
-  }
-  return row;
-}
 
 async function requirePatient(patientId: string) {
   const db = createDb();
@@ -33,7 +23,7 @@ export const clinicalRouter = {
   patientSummary: protectedProcedure
     .input(z.object({ patientId: z.string().min(1) }))
     .handler(async ({ context, input }) => {
-      await requireClinic(context.session.user.id);
+      await requireActiveClinic(context.session.user.id);
       const p = await requirePatient(input.patientId);
       const db = createDb();
 
@@ -66,7 +56,7 @@ export const clinicalRouter = {
   listDocuments: protectedProcedure
     .input(z.object({ patientId: z.string().min(1) }))
     .handler(async ({ context, input }) => {
-      await requireClinic(context.session.user.id);
+      await requireActiveClinic(context.session.user.id);
       await requirePatient(input.patientId);
       const db = createDb();
       return db
@@ -84,7 +74,7 @@ export const clinicalRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      await requireClinic(context.session.user.id);
+      await requireActiveClinic(context.session.user.id);
       const db = createDb();
       const rows = await db
         .select()
@@ -134,7 +124,7 @@ export const clinicalRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      await requireClinic(context.session.user.id);
+      await requireActiveClinic(context.session.user.id);
       await requirePatient(input.patientId);
       const db = createDb();
       const [row] = await db
@@ -167,7 +157,7 @@ export const clinicalRouter = {
   ingestionStats: protectedProcedure
     .input(z.object({ patientId: z.string().min(1) }))
     .handler(async ({ context, input }) => {
-      await requireClinic(context.session.user.id);
+      await requireActiveClinic(context.session.user.id);
       const db = createDb();
       const rows = await db
         .select({

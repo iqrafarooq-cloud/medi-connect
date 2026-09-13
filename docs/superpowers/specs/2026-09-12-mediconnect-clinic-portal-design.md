@@ -50,7 +50,8 @@ Unauthenticated access to protected routes redirects to `/login`.
 
 ### 2.2 Actors
 
-- **Clinic / hospital staff** (portal users): register facility, upload credentials, manage patient intake, view stub dashboards.
+- **Clinic / hospital staff** (portal users): register facility, upload credentials, manage patient intake, view stub dashboards. Portal access requires `clinic.status === active` after admin approval.
+- **System admin** (single): env-configured `ADMIN_EMAIL` / `ADMIN_PASSWORD`; signs in at `/admin/login`; reviews clinic documents and approves, rejects, or removes facilities.
 - **Patients:** no portal login. Identity lives in the global patient store; files live under their patient folder in Supabase.
 
 ## 3. Data model
@@ -77,7 +78,7 @@ Use existing `user`, `session`, `account`, `verification` from `packages/db/src/
 | `ownerName` | Contact / owner display name |
 | `phone` | Normalized `+92…` |
 | `licenseNumber` | Medical license / registration number |
-| `status` | `pending_verification` \| `active` |
+| `status` | `pending_verification` \| `active` \| `rejected` |
 | `createdAt` / `updatedAt` | |
 
 `clinic_document` (metadata only; bytes in Supabase)
@@ -189,13 +190,26 @@ On submit (transactional where possible):
 1. Create Better Auth user (email/password).  
 2. Create `clinic` with `status: pending_verification`.  
 3. Upload files to Supabase; insert `clinic_document` rows.  
-4. Establish session; redirect to `/dashboard`.  
+4. Sign out; redirect to `/register/pending` (awaiting admin verification — no portal access yet).  
+
+Re-registering with an email that already has a `pending_verification` or `rejected` clinic returns an error directing the user to contact MediConnect at `info@mediconnect.com`.
 
 Rollback / compensating cleanup if mid-flow fails (avoid orphan clinic without owner, or orphan uploads without DB rows).
 
 ### 5.2 Login (`/login`)
 
-Email + password via Better Auth. No patient self-serve login.
+Email + password via Better Auth. After sign-in, gate on clinic status:
+
+- `active` → portal  
+- `pending_verification` → sign out; awaiting verification message  
+- `rejected` → sign out; rejection message with `info@mediconnect.com`  
+- Admin email → sign out; redirect to use `/admin/login`  
+
+No patient self-serve login.
+
+### 5.2a Admin (`/admin/login`, `/admin`)
+
+Single system admin from `ADMIN_EMAIL` / `ADMIN_PASSWORD`. Tabs for pending / approved / rejected clinics; detail view with signed document URLs; approve, reject, or remove.
 
 ### 5.3 Patient registration / lookup (`/patients`, `/patients/new`)
 
@@ -240,8 +254,9 @@ Stub pages do not require live alert/AI endpoints.
 
 ## 9. Testing
 
-- Unit: CNIC + phone normalizers / validators.  
-- Smoke: register clinic → upload license → login → search missing CNIC → create patient → re-search finds same → upload patient file to `patients` bucket → stub routes render at mobile and desktop widths.
+- Unit: CNIC + phone normalizers / validators; clinic login gate + registration blocked messages.  
+- Smoke: register clinic → pending page → admin approves at `/admin` → clinic login succeeds → search missing CNIC → create patient → re-search finds same → upload patient file to `patients` bucket → stub routes render at mobile and desktop widths.  
+- Smoke reject path: admin rejects → clinic login shows contact `info@mediconnect.com` → re-register shows already-registered-not-approved message.
 
 ## 10. Implementation phases (for planning)
 
@@ -262,6 +277,8 @@ Stub pages do not require live alert/AI endpoints.
 | Phone | Pakistan `+92` only |
 | File storage | Supabase: `clinic-documents` + `patients` buckets |
 | Auth depth | Real Better Auth for clinic + patient CRUD; stubs for triage/AI/live ETA |
+| Admin access | Single env admin (`ADMIN_EMAIL` / `ADMIN_PASSWORD`), separate `/admin` portal |
+| Clinic verification | `pending_verification` → admin approve (`active`) or reject (`rejected`); login gated |
 | Apps | `apps/web` only |
 | Design | Stitch Clinical Care Portal theme; increase spacing |
 | Clinic docs | Form fields + real file upload (option B) |

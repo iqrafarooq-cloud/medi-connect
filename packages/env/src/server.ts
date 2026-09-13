@@ -39,6 +39,8 @@ export const env = createEnv({
     DIRECT_URL: z.string().min(1).optional(),
     BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.url(),
+    ADMIN_EMAIL: z.string().email(),
+    ADMIN_PASSWORD: z.string().min(8),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
     SUPABASE_URL: z.string().url().optional(),
     // New Supabase keys (preferred)

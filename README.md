@@ -50,10 +50,13 @@ Use the Expo Go app to run the mobile application.
 
 Clinic/hospital web app (patients do not sign in here):
 
-- `/register` — multi-step facility onboarding + license uploads
-- `/login` — clinic sign-in
+- `/register` — multi-step facility onboarding + license uploads (stays pending until admin approval)
+- `/login` — clinic sign-in (only after admin approval)
+- `/admin/login`, `/admin` — single system admin reviews, approves, rejects, or removes clinics
 - `/dashboard`, `/triage`, `/assistant` — responsive stub UIs
 - `/patients`, `/patients/new` — global CNIC patient registry (wired)
+
+Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `apps/web/.env` (see `.env.example`). The admin user is created automatically on first visit to `/admin/login`.
 
 ### Supabase Storage
 

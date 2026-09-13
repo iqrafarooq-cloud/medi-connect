@@ -55,6 +55,13 @@ export async function createSignedUrl(bucket: string, path: string, expiresIn = 
   return data.signedUrl;
 }
 
+export async function removeObjects(bucket: string, paths: string[]) {
+  if (!paths.length) return;
+  const supabase = createSupabaseAdmin();
+  const { error } = await supabase.storage.from(bucket).remove(paths);
+  if (error) throw error;
+}
+
 export async function downloadObject(bucket: string, path: string): Promise<Buffer> {
   const supabase = createSupabaseAdmin();
   const { data, error } = await supabase.storage.from(bucket).download(path);

@@ -12,8 +12,9 @@ import {
 import { createDb } from "@medi-connect/db";
 import { chatMessage, chatSession } from "@medi-connect/db/schema/clinical";
 import { patient } from "@medi-connect/db/schema/patient";
-import { clinic } from "@medi-connect/db/schema/clinic";
 import { logAccess } from "@medi-connect/api/lib/audit";
+import { CLINIC_STATUS } from "@medi-connect/api/lib/clinic-verification";
+import { findClinicByOwner } from "@medi-connect/api/lib/require-clinic";
 import {
   convertToModelMessages,
   createUIMessageStreamResponse,
@@ -45,21 +46,20 @@ export async function POST(req: Request) {
   }
 
   const db = createDb();
-  const facilityRows = await db
-    .select()
-    .from(clinic)
-    .where(eq(clinic.ownerUserId, session.user.id))
-    .limit(1);
-  if (!facilityRows[0]) {
+  const facility = await findClinicByOwner(session.user.id);
+  if (!facility || facility.status !== CLINIC_STATUS.ACTIVE) {
     await logAccess({
       actorUserId: session.user.id,
       action: "chat",
       resourceType: "patient",
       patientId,
       outcome: "denied",
-      detail: { reason: "no_clinic" },
+      detail: { reason: "no_active_clinic" },
     });
-    return Response.json({ error: "Complete clinic registration first" }, { status: 403 });
+    return Response.json(
+      { error: "Clinic must be approved before using the portal" },
+      { status: 403 },
+    );
   }
 
   const patientRows = await db.select().from(patient).where(eq(patient.id, patientId)).limit(1);

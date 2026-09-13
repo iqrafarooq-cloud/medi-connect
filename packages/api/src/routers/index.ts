@@ -1,6 +1,7 @@
 import type { RouterClient } from "@orpc/server";
 
 import { protectedProcedure, publicProcedure } from "../index";
+import { adminRouter } from "./admin";
 import { clinicRouter } from "./clinic";
 import { clinicalRouter } from "./clinical";
 import { patientRouter } from "./patient";
@@ -16,6 +17,7 @@ export const appRouter = {
       user: context.session?.user,
     };
   }),
+  admin: adminRouter,
   clinic: clinicRouter,
   patient: patientRouter,
   clinical: clinicalRouter,

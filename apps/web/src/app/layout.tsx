@@ -29,6 +29,7 @@ export default function RootLayout({
     <html lang="en" className="light" suppressHydrationWarning>
       <body
         className={`${heading.variable} ${body.variable} bg-background text-foreground antialiased`}
+        suppressHydrationWarning
       >
         <Providers>{children}</Providers>
       </body>

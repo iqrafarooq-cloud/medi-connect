@@ -1,7 +1,10 @@
 import { auth } from "@medi-connect/auth";
 import { createDb } from "@medi-connect/db";
+<<<<<<< Updated upstream
 import { user } from "@medi-connect/db/schema/auth";
 import { clinic } from "@medi-connect/db/schema/clinic";
+=======
+>>>>>>> Stashed changes
 import { patient, patientFile } from "@medi-connect/db/schema/patient";
 import { desc, eq, ilike } from "drizzle-orm";
 import { ORPCError } from "@orpc/server";
@@ -14,8 +17,10 @@ import {
   normalizePakistanPhone,
   parseIsoDateOfBirth,
 } from "../lib/pakistan";
+import { requireActiveClinic } from "../lib/require-clinic";
 import { createSignedUrl } from "../lib/supabase";
 
+<<<<<<< Updated upstream
 async function requireClinic(userId: string) {
   const db = createDb();
   const rows = await db.select().from(clinic).where(eq(clinic.ownerUserId, userId)).limit(1);
@@ -33,6 +38,8 @@ function getAuthErrorMessage(error: unknown): string {
   return "Could not create account";
 }
 
+=======
+>>>>>>> Stashed changes
 export const patientRouter = {
   selfRegister: publicProcedure
     .input(
@@ -138,7 +145,7 @@ export const patientRouter = {
   searchByCnic: protectedProcedure
     .input(z.object({ cnic: z.string().min(5) }))
     .handler(async ({ context, input }) => {
-      await requireClinic(context.session.user.id);
+      await requireActiveClinic(context.session.user.id);
       const cnic = normalizeCnic(input.cnic);
       if (!cnic) {
         throw new ORPCError("BAD_REQUEST", { message: "CNIC must be 13 digits" });
@@ -151,7 +158,7 @@ export const patientRouter = {
   search: protectedProcedure
     .input(z.object({ query: z.string().min(1).max(100) }))
     .handler(async ({ context, input }) => {
-      await requireClinic(context.session.user.id);
+      await requireActiveClinic(context.session.user.id);
       const db = createDb();
       const q = input.query.trim();
       const cnic = normalizeCnic(q);
@@ -168,7 +175,7 @@ export const patientRouter = {
   get: protectedProcedure
     .input(z.object({ id: z.string().min(1) }))
     .handler(async ({ context, input }) => {
-      await requireClinic(context.session.user.id);
+      await requireActiveClinic(context.session.user.id);
       const db = createDb();
       const rows = await db.select().from(patient).where(eq(patient.id, input.id)).limit(1);
       if (!rows[0]) {
@@ -192,7 +199,7 @@ export const patientRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const facility = await requireClinic(context.session.user.id);
+      const facility = await requireActiveClinic(context.session.user.id);
       const cnic = normalizeCnic(input.cnic);
       if (!cnic) {
         throw new ORPCError("BAD_REQUEST", { message: "CNIC must be 13 digits" });
@@ -247,7 +254,7 @@ export const patientRouter = {
   listFiles: protectedProcedure
     .input(z.object({ patientId: z.string().min(1) }))
     .handler(async ({ context, input }) => {
-      await requireClinic(context.session.user.id);
+      await requireActiveClinic(context.session.user.id);
       const db = createDb();
       const files = await db
         .select()

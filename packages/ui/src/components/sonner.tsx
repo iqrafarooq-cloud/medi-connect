@@ -10,8 +10,11 @@ import {
 import { useTheme } from "next-themes";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 
-const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme();
+const Toaster = ({ theme: themeProp, ...props }: ToasterProps) => {
+  const { theme: themeFromProvider } = useTheme();
+  // Prefer an explicit theme so SSR and the first client paint match
+  // (useTheme() is often undefined/"system" on the server).
+  const theme = themeProp ?? themeFromProvider ?? "light";
 
   return (
     <Sonner

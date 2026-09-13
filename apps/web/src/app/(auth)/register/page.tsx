@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -78,13 +79,23 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
+      const prior = await client.clinic.registrationStatus({ email: form.email });
+      if (prior.blockedMessage) {
+        throw new Error(prior.blockedMessage);
+      }
+
       const signUp = await authClient.signUp.email({
         email: form.email,
         password: form.password,
         name: form.ownerName,
       });
       if (signUp.error) {
-        throw new Error(signUp.error.message || "Could not create account");
+        const again = await client.clinic.registrationStatus({ email: form.email });
+        throw new Error(
+          again.blockedMessage ||
+            signUp.error.message ||
+            "Could not create account",
+        );
       }
 
       await client.clinic.registerProfile({
@@ -114,8 +125,9 @@ export default function RegisterPage() {
         }
       }
 
+      await authClient.signOut();
       toast.success("Clinic registered — pending verification");
-      router.push("/emergency-triage");
+      router.push("/register/pending" as Route);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Registration failed");
       setLoading(false);
