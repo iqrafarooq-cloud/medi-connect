@@ -24,7 +24,7 @@ function loadEnvFiles() {
 
   const seen = new Set<string>();
   for (const entry of layered) {
-    if (seen.has(entry.path) || !fs.existsSync(entry.path)) continue;
+    if (seen.has(entry.path) || !fs.existsSync(/* turbopackIgnore: true */ entry.path)) continue;
     seen.add(entry.path);
     dotenv.config({ path: entry.path, override: entry.override });
   }
