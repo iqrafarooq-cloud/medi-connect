@@ -1,517 +1,858 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   Check,
   Clock3,
-  HeartPulse,
-  Radio,
-  ShieldCheck,
+  Pencil,
+  Plus,
+  Trash2,
   Users,
+  X,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@medi-connect/ui/components/button";
+import { Input } from "@medi-connect/ui/components/input";
+import { Label } from "@medi-connect/ui/components/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@medi-connect/ui/components/sheet";
 import { cn } from "@medi-connect/ui/lib/utils";
 
-type EsiLevel = 1 | 2 | 3 | 4;
+import { client } from "@/utils/orpc";
 
-type InboundPatient = {
+type EsiLevel = 1 | 2 | 3 | 4;
+type BayStatus = "available" | "reserved" | "in_care" | "turnover";
+
+type TriageCase = {
   id: string;
-  esi: EsiLevel;
-  esiLabel: string;
-  unit: string;
-  category: string;
-  etaSeconds: number;
-  initials: string;
-  name: string;
-  age: number;
-  gender: string;
-  mrn: string;
+  patientId: string | null;
+  fullName: string;
+  ageYears: number | null;
+  gender: string | null;
+  bloodType: string | null;
   complaint: string;
-  blood: string;
-  bayHint: string;
-  vitalsLabel: string;
-  vitals: { label: string; value: string; alert?: boolean }[];
-  aiInsight?: string;
-  primaryAction: string;
-  secondaryAction: string;
+  category: string;
+  transportUnit: string;
+  esi: number;
+  status: string;
+  etaAt: string | Date;
+  bayId: string | null;
+  acknowledgedAt: string | Date | null;
 };
 
 type Bay = {
   id: string;
   label: string;
-  status: "reserved" | "available" | "turnover" | "in_care";
+  status: string;
   detail: string;
+  sortOrder: number;
+};
+
+type Lead = {
+  id: string;
+  name: string;
+  role: string;
+  active: boolean;
+};
+
+type PrepItem = {
+  id: string;
+  caseId: string;
+  label: string;
+  done: boolean;
+  sortOrder: number;
+};
+
+type Board = {
+  cases: TriageCase[];
+  bays: Bay[];
+  leads: Lead[];
+  prepItems: PrepItem[];
+  selectedCaseId: string | null;
+  criticalCaseId: string | null;
+  kpis: { inboundCount: number; baysOpen: number; baysTotal: number };
 };
 
 const ESI: Record<
   EsiLevel,
-  { bar: string; chip: string; soft: string; eta: string; alert: string }
+  { label: string; bar: string; chip: string; soft: string; eta: string }
 > = {
   1: {
+    label: "Critical resuscitation",
     bar: "bg-destructive",
     chip: "bg-destructive text-destructive-foreground",
     soft: "bg-destructive/5",
     eta: "text-destructive",
-    alert: "text-destructive",
   },
   2: {
+    label: "Emergent",
     bar: "bg-orange-600",
     chip: "bg-orange-600 text-white",
     soft: "bg-orange-600/5",
     eta: "text-orange-700",
-    alert: "text-orange-700",
   },
   3: {
+    label: "Urgent",
     bar: "bg-amber-500",
     chip: "bg-amber-500 text-white",
     soft: "bg-amber-500/10",
     eta: "text-amber-700",
-    alert: "text-amber-700",
   },
   4: {
+    label: "Less urgent",
     bar: "bg-primary",
     chip: "bg-primary text-primary-foreground",
     soft: "bg-primary/5",
     eta: "text-primary",
-    alert: "text-primary",
   },
 };
 
-const BAY_DOT: Record<Bay["status"], string> = {
+const BAY_DOT: Record<BayStatus, string> = {
   reserved: "bg-destructive",
   available: "bg-primary",
   turnover: "bg-amber-500",
   in_care: "bg-teal-700",
 };
 
-const inboundSeed: InboundPatient[] = [
-  {
-    id: "1",
-    esi: 1,
-    esiLabel: "Critical resuscitation",
-    unit: "EMS Unit 42",
-    category: "Adult cardiac",
-    etaSeconds: 252,
-    initials: "AK",
-    name: "Ahmed Khan",
-    age: 58,
-    gender: "M",
-    mrn: "MC-884201",
-    complaint: "Suspected acute STEMI",
-    blood: "B+",
-    bayHint: "Bay 1 reserved",
-    vitalsLabel: "In-flight vitals (stub)",
-    vitals: [
-      { label: "BP", value: "88/54", alert: true },
-      { label: "SpO₂", value: "91%", alert: true },
-      { label: "HR", value: "118", alert: true },
-      { label: "Resp", value: "28" },
-    ],
-    aiInsight: "High probability STEMI pathway · cath lab notified (stub)",
-    primaryAction: "Confirm Bay 1",
-    secondaryAction: "View telemetry & ECG",
-  },
-  {
-    id: "2",
-    esi: 2,
-    esiLabel: "Emergent",
-    unit: "EMS Unit 17",
-    category: "Adult trauma",
-    etaSeconds: 700,
-    initials: "SR",
-    name: "Sana Riaz",
-    age: 34,
-    gender: "F",
-    mrn: "MC-772918",
-    complaint: "MVC · polytrauma screen",
-    blood: "O+",
-    bayHint: "Bay 3 preferred",
-    vitalsLabel: "Baseline vitals (stub)",
-    vitals: [
-      { label: "BP", value: "102/68" },
-      { label: "SpO₂", value: "96%" },
-      { label: "HR", value: "98" },
-      { label: "Resp", value: "22" },
-    ],
-    primaryAction: "Assign Bay 3",
-    secondaryAction: "Trauma packet",
-  },
-  {
-    id: "3",
-    esi: 3,
-    esiLabel: "Urgent",
-    unit: "Private transport",
-    category: "Pediatric",
-    etaSeconds: 1085,
-    initials: "FR",
-    name: "Fatima Raza",
-    age: 6,
-    gender: "F",
-    mrn: "MC-551203",
-    complaint: "Fever + dehydration",
-    blood: "A+",
-    bayHint: "Peds bay standby",
-    vitalsLabel: "Baseline vitals (stub)",
-    vitals: [
-      { label: "BP", value: "92/58" },
-      { label: "SpO₂", value: "98%" },
-      { label: "HR", value: "132" },
-      { label: "Resp", value: "28" },
-    ],
-    primaryAction: "Prep peds bay",
-    secondaryAction: "Protocol",
-  },
-  {
-    id: "4",
-    esi: 4,
-    esiLabel: "Less urgent",
-    unit: "EMS Unit 09",
-    category: "Adult ortho",
-    etaSeconds: 1590,
-    initials: "UA",
-    name: "Usman Ali",
-    age: 41,
-    gender: "M",
-    mrn: "MC-441087",
-    complaint: "Isolated ankle injury · stable",
-    blood: "A-",
-    bayHint: "Fast-track OK",
-    vitalsLabel: "Baseline vitals (stub)",
-    vitals: [
-      { label: "BP", value: "128/78" },
-      { label: "SpO₂", value: "99%" },
-      { label: "HR", value: "76" },
-      { label: "Resp", value: "16" },
-    ],
-    primaryAction: "Queue fast-track",
-    secondaryAction: "Intake notes",
-  },
-];
-
-const bays: Bay[] = [
-  { id: "b1", label: "Bay 1", status: "reserved", detail: "A. Khan · Prep" },
-  { id: "b2", label: "Bay 2", status: "in_care", detail: "Trauma in care" },
-  { id: "b3", label: "Bay 3", status: "available", detail: "Ready" },
-  { id: "b4", label: "Bay 4", status: "turnover", detail: "Turnover" },
-  { id: "b5", label: "Bay 5", status: "available", detail: "Prep ready" },
-];
-
-const prepSeed = [
-  { id: "p1", label: "Defibrillator & suction functional", done: true },
-  { id: "p2", label: "12-lead ECG leads staged", done: true },
-  { id: "p3", label: "STEMI pathway kit open", done: false },
-  { id: "p4", label: "Cath lab bridge notified", done: false },
-  { id: "p5", label: "Airway cart checked", done: true },
-];
-
-const leads = [
-  { name: "Dr. Sarah Jenkins", role: "Attending lead" },
-  { name: "Dr. Imran Qureshi", role: "Interventional cardio" },
-  { name: "Nurse Lead Ayesha", role: "Charge RN · Bay 1" },
-  { name: "RT Bilal Hussain", role: "Respiratory on-deck" },
-];
+const emptyCaseForm = {
+  cnic: "",
+  patientId: "" as string | null,
+  fullName: "",
+  ageYears: "",
+  gender: "",
+  bloodType: "",
+  complaint: "",
+  category: "General",
+  transportUnit: "Walk-in",
+  esi: "2",
+  etaMinutesFromNow: "15",
+  bayId: "",
+};
 
 function formatEta(totalSeconds: number) {
-  const s = Math.max(0, totalSeconds);
+  const s = Math.max(0, Math.floor(totalSeconds));
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
 }
 
-export default function EmergencyTriagePage() {
-  const [etas, setEtas] = useState(() =>
-    Object.fromEntries(inboundSeed.map((p) => [p.id, p.etaSeconds])),
-  );
-  const [checklist, setChecklist] = useState(prepSeed);
-  const [alertAck, setAlertAck] = useState(false);
-  const [selectedId, setSelectedId] = useState("1");
-  const [chase, setChase] = useState(0);
+function secondsUntil(etaAt: string | Date) {
+  const t = typeof etaAt === "string" ? new Date(etaAt).getTime() : etaAt.getTime();
+  return Math.max(0, Math.floor((t - Date.now()) / 1000));
+}
 
-  const critical = inboundSeed[0]!;
-  const queue = inboundSeed;
-  const criticalEta = etas[critical.id] ?? critical.etaSeconds;
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function asEsi(n: number): EsiLevel {
+  if (n <= 1) return 1;
+  if (n === 2) return 2;
+  if (n === 3) return 3;
+  return 4;
+}
+
+function asBayStatus(s: string): BayStatus {
+  if (s === "reserved" || s === "in_care" || s === "turnover") return s;
+  return "available";
+}
+
+export default function EmergencyTriagePage() {
+  const [board, setBoard] = useState<Board | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState(0);
+  const [busy, setBusy] = useState(false);
+
+  const [caseSheetOpen, setCaseSheetOpen] = useState(false);
+  const [caseForm, setCaseForm] = useState(emptyCaseForm);
+  const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
+
+  const [baySheetOpen, setBaySheetOpen] = useState(false);
+  const [bayForm, setBayForm] = useState({
+    bayId: "" as string | null,
+    label: "",
+    status: "available" as BayStatus,
+    detail: "Ready",
+  });
+
+  const [leadSheetOpen, setLeadSheetOpen] = useState(false);
+  const [leadForm, setLeadForm] = useState({ name: "", role: "" });
+  const [prepDraft, setPrepDraft] = useState("");
+
+  const loadBoard = useCallback(async (caseId?: string | null) => {
+    const data = await client.triage.board(
+      caseId ? { selectedCaseId: caseId } : undefined,
+    );
+    setBoard(data as Board);
+    setSelectedId((prev) => {
+      if (caseId) return caseId;
+      if (prev && data.cases.some((c) => c.id === prev)) return prev;
+      return data.selectedCaseId ?? data.criticalCaseId ?? null;
+    });
+    return data as Board;
+  }, []);
 
   useEffect(() => {
-    const tick = window.setInterval(() => {
-      setEtas((prev) => {
-        const next: Record<string, number> = {};
-        for (const [id, value] of Object.entries(prev)) {
-          next[id] = Math.max(0, value - 1);
-        }
-        return next;
-      });
-      setChase((c) => (c + 1) % 16);
-    }, 1000);
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        await loadBoard();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to load triage board");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadBoard]);
+
+  useEffect(() => {
+    const tick = window.setInterval(() => setNowTick((n) => n + 1), 1000);
     return () => window.clearInterval(tick);
   }, []);
 
-  const togglePrep = (id: string) => {
-    setChecklist((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, done: !item.done } : item)),
-    );
-  };
+  const cases = board?.cases ?? [];
+  const bays = board?.bays ?? [];
+  const leads = board?.leads ?? [];
+  const prepItems = board?.prepItems ?? [];
+  const selected = cases.find((c) => c.id === selectedId) ?? null;
+  const critical =
+    cases.find((c) => c.id === board?.criticalCaseId) ?? cases[0] ?? null;
+  const criticalEta = critical ? secondsUntil(critical.etaAt) : 0;
+  void nowTick;
 
-  const doneCount = checklist.filter((i) => i.done).length;
+  const bayById = useMemo(() => new Map(bays.map((b) => [b.id, b])), [bays]);
+
+  async function refresh(preferred?: string | null) {
+    try {
+      await loadBoard(preferred ?? selectedId);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Refresh failed");
+    }
+  }
+
+  async function searchPatientByCnic() {
+    const cnic = caseForm.cnic.trim();
+    if (!cnic) return;
+    try {
+      const found = await client.patient.searchByCnic({ cnic });
+      if (!found) {
+        toast.message("No patient for that CNIC — enter details manually");
+        setCaseForm((f) => ({ ...f, patientId: null }));
+        return;
+      }
+      const dob = found.dateOfBirth;
+      const age = (() => {
+        if (!dob) return "";
+        const d = new Date(dob);
+        const now = new Date();
+        let a = now.getFullYear() - d.getFullYear();
+        const m = now.getMonth() - d.getMonth();
+        if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a -= 1;
+        return String(a);
+      })();
+      setCaseForm((f) => ({
+        ...f,
+        patientId: found.id,
+        fullName: found.fullName,
+        ageYears: age,
+        gender: found.gender ?? "",
+        bloodType: found.bloodType ?? "",
+      }));
+      toast.success(`Linked ${found.fullName}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "CNIC lookup failed");
+    }
+  }
+
+  function openCreateCase() {
+    setEditingCaseId(null);
+    setCaseForm(emptyCaseForm);
+    setCaseSheetOpen(true);
+  }
+
+  function openEditCase(c: TriageCase) {
+    setEditingCaseId(c.id);
+    setCaseForm({
+      cnic: "",
+      patientId: c.patientId,
+      fullName: c.fullName,
+      ageYears: c.ageYears != null ? String(c.ageYears) : "",
+      gender: c.gender ?? "",
+      bloodType: c.bloodType ?? "",
+      complaint: c.complaint,
+      category: c.category,
+      transportUnit: c.transportUnit,
+      esi: String(c.esi),
+      etaMinutesFromNow: String(Math.max(1, Math.ceil(secondsUntil(c.etaAt) / 60))),
+      bayId: c.bayId ?? "",
+    });
+    setCaseSheetOpen(true);
+  }
+
+  async function saveCase() {
+    if (!caseForm.fullName.trim() || !caseForm.complaint.trim()) {
+      toast.error("Name and complaint are required");
+      return;
+    }
+    setBusy(true);
+    try {
+      const payload = {
+        patientId: caseForm.patientId || null,
+        fullName: caseForm.fullName.trim(),
+        ageYears: caseForm.ageYears ? Number(caseForm.ageYears) : null,
+        gender: caseForm.gender || null,
+        bloodType: caseForm.bloodType || null,
+        complaint: caseForm.complaint.trim(),
+        category: caseForm.category.trim() || "General",
+        transportUnit: caseForm.transportUnit.trim() || "Walk-in",
+        esi: Number(caseForm.esi) as EsiLevel,
+        etaMinutesFromNow: Number(caseForm.etaMinutesFromNow) || 15,
+        bayId: caseForm.bayId || null,
+      };
+      if (editingCaseId) {
+        await client.triage.updateCase({ caseId: editingCaseId, ...payload });
+        toast.success("Case updated");
+        setCaseSheetOpen(false);
+        await refresh(editingCaseId);
+      } else {
+        const created = await client.triage.createCase(payload);
+        toast.success("Inbound case created");
+        setCaseSheetOpen(false);
+        await refresh(created.id);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function acknowledge(caseId: string, bayId?: string | null) {
+    setBusy(true);
+    try {
+      await client.triage.acknowledgeCase({
+        caseId,
+        ...(bayId ? { bayId } : {}),
+      });
+      toast.success("Case acknowledged");
+      await refresh(caseId);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Acknowledge failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function assignBay(caseId: string, bayId: string) {
+    setBusy(true);
+    try {
+      await client.triage.assignBay({ caseId, bayId });
+      toast.success("Bay assigned");
+      await refresh(caseId);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Assign failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function clearCase(caseId: string, outcome: "cleared" | "cancelled") {
+    setBusy(true);
+    try {
+      await client.triage.clearCase({ caseId, outcome });
+      toast.success(outcome === "cleared" ? "Case cleared" : "Case cancelled");
+      await refresh(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Clear failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openBayEditor(bay?: Bay) {
+    if (bay) {
+      setBayForm({
+        bayId: bay.id,
+        label: bay.label,
+        status: asBayStatus(bay.status),
+        detail: bay.detail,
+      });
+    } else {
+      setBayForm({
+        bayId: null,
+        label: `Bay ${bays.length + 1}`,
+        status: "available",
+        detail: "Ready",
+      });
+    }
+    setBaySheetOpen(true);
+  }
+
+  async function saveBay() {
+    if (!bayForm.label.trim()) {
+      toast.error("Bay label required");
+      return;
+    }
+    setBusy(true);
+    try {
+      if (bayForm.bayId) {
+        await client.triage.bay.update({
+          bayId: bayForm.bayId,
+          label: bayForm.label.trim(),
+          status: bayForm.status,
+          detail: bayForm.detail.trim(),
+        });
+        toast.success("Bay updated");
+      } else {
+        await client.triage.bay.create({
+          label: bayForm.label.trim(),
+          status: bayForm.status,
+          detail: bayForm.detail.trim() || "Ready",
+        });
+        toast.success("Bay created");
+      }
+      setBaySheetOpen(false);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Bay save failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteBay(bayId: string) {
+    setBusy(true);
+    try {
+      await client.triage.bay.delete({ bayId });
+      toast.success("Bay removed");
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Delete failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveLead() {
+    if (!leadForm.name.trim() || !leadForm.role.trim()) {
+      toast.error("Name and role required");
+      return;
+    }
+    setBusy(true);
+    try {
+      await client.triage.lead.create({
+        name: leadForm.name.trim(),
+        role: leadForm.role.trim(),
+      });
+      toast.success("Lead added");
+      setLeadSheetOpen(false);
+      setLeadForm({ name: "", role: "" });
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Lead save failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeLead(leadId: string) {
+    setBusy(true);
+    try {
+      await client.triage.lead.delete({ leadId });
+      toast.success("Lead removed");
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Remove failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function togglePrep(itemId: string) {
+    try {
+      await client.triage.prep.toggle({ itemId });
+      await refresh(selectedId);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Toggle failed");
+    }
+  }
+
+  async function addPrep() {
+    if (!selectedId || !prepDraft.trim()) return;
+    try {
+      await client.triage.prep.add({ caseId: selectedId, label: prepDraft.trim() });
+      setPrepDraft("");
+      await refresh(selectedId);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Add prep failed");
+    }
+  }
+
+  async function removePrep(itemId: string) {
+    try {
+      await client.triage.prep.remove({ itemId });
+      await refresh(selectedId);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Remove failed");
+    }
+  }
+
+  if (loading && !board) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
+        Loading triage board…
+      </div>
+    );
+  }
+
+  const doneCount = prepItems.filter((i) => i.done).length;
+  const selectedBay = selected?.bayId ? bayById.get(selected.bayId) : null;
+  const criticalBay = critical?.bayId ? bayById.get(critical.bayId) : null;
+  const criticalTone = critical ? ESI[asEsi(critical.esi)] : null;
+  const alertHot = critical?.status === "inbound" && critical.esi === 1;
 
   return (
     <div className="-mx-3 -mt-4 flex w-[calc(100%+1.5rem)] max-w-none flex-col gap-0 sm:-mx-4 sm:w-[calc(100%+2rem)] sm:-mt-5 lg:-mx-5 lg:w-[calc(100%+2.5rem)] lg:-mt-5">
-      {/* Critical stage — Split Attention lead band */}
       <section
         className={cn(
           "relative overflow-hidden text-white transition-colors duration-300",
-          alertAck ? "bg-primary" : "bg-destructive",
+          !critical
+            ? "bg-primary"
+            : alertHot
+              ? "bg-destructive"
+              : critical.status === "inbound"
+                ? "bg-orange-700"
+                : "bg-primary",
         )}
       >
-        <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-white/20"
-          aria-hidden
-        >
-          <div
-            className="h-full w-[12.5%] bg-white/90 transition-transform duration-1000 ease-linear"
-            style={{ transform: `translateX(${chase * 100}%)` }}
-          />
-        </div>
-
         <div className="flex flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5 lg:flex-row lg:items-end lg:justify-between lg:gap-8 lg:px-8">
           <div className="min-w-0 space-y-3">
-            <div className="space-y-1">
-              <h1 className="font-heading text-2xl font-semibold tracking-tight text-white sm:text-3xl lg:text-[2rem]">
-                {alertAck
-                  ? `${critical.name} · Bay 1 assignment pending`
-                  : `${critical.name} inbound · ${critical.complaint}`}
-              </h1>
-              <p className="max-w-2xl text-sm text-white/85">
-                {critical.unit} · ESI {critical.esi} · {critical.age}
-                {critical.gender} · MRN {critical.mrn} · Blood {critical.blood} ·{" "}
-                {critical.bayHint}
-              </p>
-            </div>
-
-            {!alertAck ? (
-              <Button
-                size="lg"
-                variant="secondary"
-                className="h-10 bg-white px-5 font-semibold text-destructive hover:bg-white/90"
-                onClick={() => setAlertAck(true)}
-              >
-                Acknowledge & assign Bay 1
-              </Button>
+            {critical && criticalTone ? (
+              <>
+                <div className="space-y-1">
+                  <h1 className="font-heading text-2xl font-semibold tracking-tight text-white sm:text-3xl lg:text-[2rem]">
+                    {critical.status === "acknowledged"
+                      ? `${critical.fullName} · ${criticalBay?.label ?? "Bay"} assignment`
+                      : `${critical.fullName} inbound · ${critical.complaint}`}
+                  </h1>
+                  <p className="max-w-2xl text-sm text-white/85">
+                    {critical.transportUnit} · ESI {critical.esi} ·{" "}
+                    {critical.ageYears != null ? `${critical.ageYears}` : "—"}
+                    {critical.gender ? critical.gender[0]?.toUpperCase() : ""} ·{" "}
+                    {critical.bloodType ?? "Blood —"} ·{" "}
+                    {criticalBay ? `${criticalBay.label} linked` : "No bay yet"}
+                  </p>
+                </div>
+                {critical.status === "inbound" ? (
+                  <Button
+                    size="lg"
+                    variant="secondary"
+                    disabled={busy}
+                    className="h-10 bg-white px-5 font-semibold text-destructive hover:bg-white/90"
+                    onClick={() =>
+                      void acknowledge(
+                        critical.id,
+                        critical.bayId ?? bays.find((b) => b.status === "available")?.id,
+                      )
+                    }
+                  >
+                    Acknowledge{criticalBay ? ` & assign ${criticalBay.label}` : " & reserve bay"}
+                  </Button>
+                ) : (
+                  <p className="inline-flex items-center gap-2 text-sm font-medium text-white/90">
+                    <Check className="size-4" />
+                    {critical.status.replace("_", " ")} · continue prep below
+                  </p>
+                )}
+              </>
             ) : (
-              <p className="inline-flex items-center gap-2 text-sm font-medium text-white/90">
-                <Check className="size-4" />
-                Critical cleared · continue bay prep below
-              </p>
+              <div className="space-y-2">
+                <h1 className="font-heading text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+                  No active inbound cases
+                </h1>
+                <p className="max-w-xl text-sm text-white/85">
+                  Create a clinic intake case for phone, EMS radio, or walk-in arrivals.
+                </p>
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  className="h-10 bg-white px-5 font-semibold text-primary hover:bg-white/90"
+                  onClick={openCreateCase}
+                >
+                  <Plus className="size-4" />
+                  New inbound case
+                </Button>
+              </div>
             )}
           </div>
 
-          <div className="shrink-0 rounded-xl bg-black/20 px-4 py-3 sm:min-w-[10rem]">
-            <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.14em] text-white/70">
-              <Clock3 className="size-3.5" />
-              ETA now
+          {critical ? (
+            <div className="shrink-0 rounded-xl bg-black/20 px-4 py-3 sm:min-w-[10rem]">
+              <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.14em] text-white/70">
+                <Clock3 className="size-3.5" />
+                ETA
+              </div>
+              <p className="mt-0.5 font-heading text-4xl font-semibold tabular-nums tracking-tight text-white sm:text-[2.75rem]">
+                {formatEta(criticalEta)}
+              </p>
+              <p className="mt-0.5 text-xs text-white/60">Live countdown to arrival</p>
             </div>
-            <p className="mt-0.5 font-heading text-4xl font-semibold tabular-nums tracking-tight text-white sm:text-[2.75rem]">
-              {formatEta(criticalEta)}
-            </p>
-            <p className="mt-0.5 text-xs text-white/60">Countdown stub · demo clock</p>
-          </div>
+          ) : null}
         </div>
       </section>
 
       <div className="flex flex-col gap-5 px-3 py-4 sm:px-4 sm:py-5 lg:px-5">
-        {/* Quiet KPI strip */}
         <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2.5">
               <h2 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">
                 Pre-Arrival Command
               </h2>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-accent px-2.5 py-0.5 text-xs font-medium text-accent-foreground">
-                <span className="relative flex size-1.5">
-                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-50" />
-                  <span className="relative size-1.5 rounded-full bg-primary" />
-                </span>
-                Live telemetry
-              </span>
             </div>
             <p className="text-sm text-muted-foreground">
-              Inbound queue and bay readiness · synthetic demo data
+              Clinic intake queue and bay readiness
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
             <span className="inline-flex items-center gap-2">
-              <span className="size-1.5 rounded-full bg-destructive" />
               <Users className="size-3.5 text-muted-foreground" />
               <span className="text-muted-foreground">Inbound</span>
-              <span className="font-heading font-semibold tabular-nums">4</span>
+              <span className="font-heading font-semibold tabular-nums">
+                {board?.kpis.inboundCount ?? 0}
+              </span>
             </span>
             <span className="inline-flex items-center gap-2">
               <Activity className="size-3.5 text-primary" />
               <span className="text-muted-foreground">Bays open</span>
-              <span className="font-heading font-semibold tabular-nums">2 / 5</span>
+              <span className="font-heading font-semibold tabular-nums">
+                {board?.kpis.baysOpen ?? 0} / {board?.kpis.baysTotal ?? 0}
+              </span>
             </span>
-            <span className="inline-flex items-center gap-2">
-              <Clock3 className="size-3.5 text-primary" />
-              <span className="text-muted-foreground">Avg triage</span>
-              <span className="font-heading font-semibold tabular-nums">6.4m</span>
-            </span>
-            <Button
-              size="sm"
-              className="h-9 gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled
-            >
-              <Radio className="size-3.5" />
-              Broadcast bay alert
+            <Button size="sm" className="h-9 gap-1.5" onClick={openCreateCase}>
+              <Plus className="size-3.5" />
+              New case
             </Button>
           </div>
         </div>
 
-        {/* Equal rails */}
         <div className="grid gap-5 xl:grid-cols-2">
           <section className="min-w-0 space-y-3">
             <div className="flex items-baseline justify-between gap-2">
               <h3 className="font-heading text-lg font-semibold">Inbound queue</h3>
-              <span className="text-xs text-muted-foreground">{queue.length} active</span>
+              <span className="text-xs text-muted-foreground">{cases.length} active</span>
             </div>
 
-            <ul className="space-y-2.5">
-              {queue.map((patient) => {
-                const tone = ESI[patient.esi];
-                const selected = selectedId === patient.id;
-                const eta = etas[patient.id] ?? patient.etaSeconds;
-                return (
-                  <li key={patient.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId(patient.id)}
-                      className={cn(
-                        "w-full overflow-hidden rounded-xl border bg-card text-left transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        selected
-                          ? "border-primary/40 shadow-sm ring-1 ring-primary/15"
-                          : "border-border hover:border-primary/25",
-                      )}
-                    >
+            {cases.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border bg-muted/40 px-4 py-8 text-center text-sm text-muted-foreground">
+                Queue empty. Add a case when a patient is en route or at intake.
+              </div>
+            ) : (
+              <ul className="space-y-2.5">
+                {cases.map((patient) => {
+                  const tone = ESI[asEsi(patient.esi)];
+                  const selectedRow = selectedId === patient.id;
+                  const eta = secondsUntil(patient.etaAt);
+                  const bay = patient.bayId ? bayById.get(patient.bayId) : null;
+                  return (
+                    <li key={patient.id}>
                       <div
                         className={cn(
-                          "flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 text-white sm:px-3.5",
-                          tone.bar,
+                          "w-full overflow-hidden rounded-xl border bg-card text-left transition-shadow",
+                          selectedRow
+                            ? "border-primary/40 shadow-sm ring-1 ring-primary/15"
+                            : "border-border",
                         )}
                       >
-                        <span className="text-[11px] font-medium tracking-wide sm:text-xs">
-                          ESI {patient.esi} · {patient.esiLabel}
-                          <span className="mx-1.5 opacity-50">|</span>
-                          {patient.unit}
-                        </span>
-                        <span className="inline-flex items-center gap-1 rounded bg-black/20 px-2 py-0.5 font-heading text-xs font-semibold tabular-nums">
-                          <Clock3 className="size-3 opacity-80" />
-                          {formatEta(eta)}
-                        </span>
-                      </div>
-
-                      <div className="space-y-3 px-3 py-3 sm:px-3.5">
-                        <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedId(patient.id);
+                            void refresh(patient.id);
+                          }}
+                          className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
                           <div
                             className={cn(
-                              "flex size-10 shrink-0 items-center justify-center rounded-md font-heading text-xs font-bold",
-                              tone.chip,
+                              "flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 text-white sm:px-3.5",
+                              tone.bar,
                             )}
                           >
-                            {patient.initials}
+                            <span className="text-[11px] font-medium tracking-wide sm:text-xs">
+                              ESI {patient.esi} · {tone.label}
+                              <span className="mx-1.5 opacity-50">|</span>
+                              {patient.transportUnit}
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded bg-black/20 px-2 py-0.5 font-heading text-xs font-semibold tabular-nums">
+                              <Clock3 className="size-3 opacity-80" />
+                              {formatEta(eta)}
+                            </span>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-baseline gap-x-2">
-                              <p className="font-heading text-base font-semibold">{patient.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {patient.age}
-                                {patient.gender} · {patient.mrn}
-                              </p>
-                            </div>
-                            <p
-                              className={cn(
-                                "text-sm font-medium",
-                                patient.esi === 1 && tone.eta,
-                              )}
-                            >
-                              {patient.complaint}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {patient.blood} · {patient.bayHint} · {patient.category}
-                            </p>
-                          </div>
-                        </div>
 
-                        {selected ? (
-                          <div className="space-y-3 border-t border-border pt-3">
-                            <div className={cn("grid grid-cols-4 gap-1.5 rounded-lg p-2", tone.soft)}>
-                              <p className="col-span-4 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                                <HeartPulse className="size-3" />
-                                {patient.vitalsLabel}
-                              </p>
-                              {patient.vitals.map((v) => (
-                                <div key={v.label} className="rounded-md bg-card px-2 py-1.5">
-                                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                                    {v.label}
+                          <div className="space-y-3 px-3 py-3 sm:px-3.5">
+                            <div className="flex gap-3">
+                              <div
+                                className={cn(
+                                  "flex size-10 shrink-0 items-center justify-center rounded-md font-heading text-xs font-bold",
+                                  tone.chip,
+                                )}
+                              >
+                                {initials(patient.fullName)}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-baseline gap-x-2">
+                                  <p className="font-heading text-base font-semibold">
+                                    {patient.fullName}
                                   </p>
-                                  <p
-                                    className={cn(
-                                      "font-heading text-sm font-semibold tabular-nums",
-                                      v.alert && "text-destructive",
-                                    )}
-                                  >
-                                    {v.value}
+                                  <p className="text-xs text-muted-foreground">
+                                    {patient.ageYears != null ? patient.ageYears : "—"}
+                                    {patient.gender
+                                      ? String(patient.gender[0] ?? "").toUpperCase()
+                                      : ""}{" "}
+                                    · {patient.status}
                                   </p>
                                 </div>
-                              ))}
+                                <p
+                                  className={cn(
+                                    "text-sm font-medium",
+                                    patient.esi === 1 && tone.eta,
+                                  )}
+                                >
+                                  {patient.complaint}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {patient.bloodType ?? "—"} ·{" "}
+                                  {bay ? bay.label : "Unassigned"} · {patient.category}
+                                </p>
+                              </div>
                             </div>
+                          </div>
+                        </button>
 
-                            {patient.aiInsight ? (
-                              <p className="rounded-lg bg-accent/70 px-3 py-2 text-xs leading-relaxed text-accent-foreground sm:text-sm">
-                                <span className="font-medium text-primary">CDS AI · </span>
-                                {patient.aiInsight}
-                              </p>
-                            ) : null}
-
+                        {selectedRow ? (
+                          <div className="space-y-2 border-t border-border px-3 py-3 sm:px-3.5">
                             <div className="flex flex-wrap gap-2">
-                              <Button size="sm" variant="outline" className="h-8" disabled>
-                                {patient.secondaryAction}
+                              {patient.status === "inbound" ? (
+                                <Button
+                                  size="sm"
+                                  className="h-8"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void acknowledge(
+                                      patient.id,
+                                      patient.bayId ??
+                                        bays.find((b) => b.status === "available")?.id,
+                                    )
+                                  }
+                                >
+                                  Acknowledge
+                                </Button>
+                              ) : null}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8"
+                                onClick={() => openEditCase(patient)}
+                              >
+                                <Pencil className="size-3.5" />
+                                Edit
                               </Button>
-                              <Button size="sm" className="h-8" disabled>
-                                {patient.primaryAction}
+                              <select
+                                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                                value={patient.bayId ?? ""}
+                                disabled={busy}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  if (!v) return;
+                                  void assignBay(patient.id, v);
+                                }}
+                              >
+                                <option value="">Assign bay…</option>
+                                {bays.map((b) => (
+                                  <option key={b.id} value={b.id}>
+                                    {b.label} ({b.status})
+                                  </option>
+                                ))}
+                              </select>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8"
+                                disabled={busy}
+                                onClick={() => void clearCase(patient.id, "cleared")}
+                              >
+                                Clear
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 text-destructive"
+                                disabled={busy}
+                                onClick={() => void clearCase(patient.id, "cancelled")}
+                              >
+                                Cancel
                               </Button>
                             </div>
                           </div>
                         ) : null}
                       </div>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </section>
 
           <aside className="space-y-4 xl:sticky xl:top-3 xl:self-start">
             <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
-              <h3 className="font-heading text-lg font-semibold">Resuscitation bays</h3>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-heading text-lg font-semibold">Resuscitation bays</h3>
+                <Button size="sm" variant="outline" className="h-8" onClick={() => openBayEditor()}>
+                  <Plus className="size-3.5" />
+                  Add
+                </Button>
+              </div>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-3">
-                {bays.map((bay) => (
-                  <div
-                    key={bay.id}
-                    className={cn(
-                      "rounded-lg border px-2.5 py-2.5",
-                      bay.status === "reserved"
-                        ? "border-destructive/30 bg-destructive/5"
-                        : "border-border bg-muted/35",
-                    )}
-                  >
-                    <div className="mb-1 flex items-center justify-between gap-1">
-                      <span className="text-xs font-semibold">{bay.label}</span>
-                      <span className={cn("size-2 rounded-full", BAY_DOT[bay.status])} />
-                    </div>
-                    <p className="text-[11px] leading-snug text-muted-foreground">{bay.detail}</p>
-                  </div>
-                ))}
+                {bays.map((bay) => {
+                  const status = asBayStatus(bay.status);
+                  return (
+                    <button
+                      key={bay.id}
+                      type="button"
+                      onClick={() => openBayEditor(bay)}
+                      className={cn(
+                        "rounded-lg border px-2.5 py-2.5 text-left transition-colors hover:border-primary/40",
+                        status === "reserved"
+                          ? "border-destructive/30 bg-destructive/5"
+                          : "border-border bg-muted/35",
+                      )}
+                    >
+                      <div className="mb-1 flex items-center justify-between gap-1">
+                        <span className="text-xs font-semibold">{bay.label}</span>
+                        <span className={cn("size-2 rounded-full", BAY_DOT[status])} />
+                      </div>
+                      <p className="text-[11px] leading-snug text-muted-foreground">{bay.detail}</p>
+                    </button>
+                  );
+                })}
               </div>
               <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
                 {(
@@ -530,108 +871,368 @@ export default function EmergencyTriagePage() {
               </div>
             </section>
 
-            <section className="rounded-xl border border-destructive/20 bg-card p-4 shadow-sm">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-heading text-lg font-semibold">Bay 1 prep · A. Khan</h3>
+                  <h3 className="font-heading text-lg font-semibold">
+                    {selected
+                      ? `${selectedBay?.label ?? "Case"} prep · ${selected.fullName.split(" ")[0]}`
+                      : "Arrival prep"}
+                  </h3>
                   <p className="text-xs text-muted-foreground">
-                    {doneCount}/{checklist.length} tasks complete
+                    {selected
+                      ? `${doneCount}/${prepItems.length} tasks complete`
+                      : "Select a case to manage prep"}
                   </p>
                 </div>
-                <span className="inline-flex items-center gap-1 rounded-md bg-destructive/10 px-2 py-1 font-heading text-xs font-semibold tabular-nums text-destructive">
-                  <Clock3 className="size-3" />
-                  {formatEta(criticalEta)}
-                </span>
+                {selected ? (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 font-heading text-xs font-semibold tabular-nums">
+                    <Clock3 className="size-3" />
+                    {formatEta(secondsUntil(selected.etaAt))}
+                  </span>
+                ) : null}
               </div>
 
-              <ul className="mt-3 space-y-1.5">
-                {checklist.map((item) => (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={() => togglePrep(item.id)}
-                      className="flex w-full items-start gap-2.5 rounded-md px-1 py-1.5 text-left text-sm hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <span
-                        className={cn(
-                          "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
-                          item.done
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-input bg-card",
-                        )}
-                      >
-                        {item.done ? <Check className="size-3" /> : null}
-                      </span>
-                      <span
-                        className={cn(
-                          "leading-snug",
-                          item.done && "text-muted-foreground line-through",
-                        )}
-                      >
-                        {item.label}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="mt-3 rounded-lg bg-muted/40 px-3 py-2.5">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Assigned lead
-                </p>
-                <p className="text-sm font-medium">Dr. Sarah Jenkins</p>
-                <button
-                  type="button"
-                  className="mt-1 text-xs font-medium text-primary underline-offset-2 hover:underline disabled:no-underline disabled:opacity-60"
-                  disabled
-                >
-                  Pre-sign protocol
-                </button>
-              </div>
+              {selected ? (
+                <>
+                  <ul className="mt-3 space-y-1.5">
+                    {prepItems.map((item) => (
+                      <li key={item.id} className="flex items-start gap-1">
+                        <button
+                          type="button"
+                          onClick={() => void togglePrep(item.id)}
+                          className="flex min-w-0 flex-1 items-start gap-2.5 rounded-md px-1 py-1.5 text-left text-sm hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <span
+                            className={cn(
+                              "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
+                              item.done
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-input bg-card",
+                            )}
+                          >
+                            {item.done ? <Check className="size-3" /> : null}
+                          </span>
+                          <span
+                            className={cn(
+                              "leading-snug",
+                              item.done && "text-muted-foreground line-through",
+                            )}
+                          >
+                            {item.label}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className="mt-1.5 rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
+                          onClick={() => void removePrep(item.id)}
+                          aria-label="Remove prep item"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-3 flex gap-2">
+                    <Input
+                      value={prepDraft}
+                      onChange={(e) => setPrepDraft(e.target.value)}
+                      placeholder="Add prep task"
+                      className="h-9"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void addPrep();
+                      }}
+                    />
+                    <Button size="sm" className="h-9" onClick={() => void addPrep()}>
+                      Add
+                    </Button>
+                  </div>
+                  {leads[0] ? (
+                    <div className="mt-3 rounded-lg bg-muted/40 px-3 py-2.5">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        On-deck lead
+                      </p>
+                      <p className="text-sm font-medium">{leads[0].name}</p>
+                      <p className="text-xs text-muted-foreground">{leads[0].role}</p>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
             </section>
 
             <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
-              <h3 className="font-heading text-lg font-semibold">Clinical leads on-deck</h3>
-              <ul className="mt-3 space-y-2">
-                {leads.map((lead) => (
-                  <li
-                    key={lead.name}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2.5"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{lead.name}</p>
-                      <p className="text-xs text-muted-foreground">{lead.role}</p>
-                    </div>
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-primary">
-                      <span className="size-1.5 rounded-full bg-primary" />
-                      Active
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-heading text-lg font-semibold">Clinical leads on-deck</h3>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8"
+                  onClick={() => {
+                    setLeadForm({ name: "", role: "" });
+                    setLeadSheetOpen(true);
+                  }}
+                >
+                  <Plus className="size-3.5" />
+                  Add
+                </Button>
+              </div>
+              {leads.length === 0 ? (
+                <p className="mt-3 text-sm text-muted-foreground">No leads listed yet.</p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {leads.map((lead) => (
+                    <li
+                      key={lead.id}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{lead.name}</p>
+                        <p className="text-xs text-muted-foreground">{lead.role}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive"
+                        onClick={() => void removeLead(lead.id)}
+                        aria-label={`Remove ${lead.name}`}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           </aside>
         </div>
-
-        <footer className="flex flex-col gap-2 border-t border-border pt-3 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="inline-flex items-center gap-1">
-              <ShieldCheck className="size-3" />
-              HIPAA · HL7/FHIR readiness stubs
-            </span>
-            <span>·</span>
-            <span>CDS AI engine online (v2.4 stub)</span>
-          </div>
-          <div className="flex gap-3">
-            <button type="button" className="hover:text-foreground" disabled>
-              Emergency protocols
-            </button>
-            <button type="button" className="hover:text-foreground" disabled>
-              IT support desk
-            </button>
-          </div>
-        </footer>
       </div>
+
+      {/* Case intake sheet */}
+      <Sheet open={caseSheetOpen} onOpenChange={setCaseSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>{editingCaseId ? "Edit inbound case" : "New inbound case"}</SheetTitle>
+            <SheetDescription>
+              Clinic intake for phone, EMS radio, or walk-in. Link a patient by CNIC when known.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4">
+            <div className="space-y-1.5">
+              <Label>CNIC lookup</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={caseForm.cnic}
+                  onChange={(e) => setCaseForm((f) => ({ ...f, cnic: e.target.value }))}
+                  placeholder="42101-1234567-1"
+                />
+                <Button type="button" variant="outline" onClick={() => void searchPatientByCnic()}>
+                  Find
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Full name</Label>
+              <Input
+                value={caseForm.fullName}
+                onChange={(e) => setCaseForm((f) => ({ ...f, fullName: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1.5">
+                <Label>Age</Label>
+                <Input
+                  type="number"
+                  value={caseForm.ageYears}
+                  onChange={(e) => setCaseForm((f) => ({ ...f, ageYears: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Gender</Label>
+                <Input
+                  value={caseForm.gender}
+                  onChange={(e) => setCaseForm((f) => ({ ...f, gender: e.target.value }))}
+                  placeholder="male / female"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Blood</Label>
+                <Input
+                  value={caseForm.bloodType}
+                  onChange={(e) => setCaseForm((f) => ({ ...f, bloodType: e.target.value }))}
+                  placeholder="B+"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Complaint</Label>
+              <Input
+                value={caseForm.complaint}
+                onChange={(e) => setCaseForm((f) => ({ ...f, complaint: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label>Category</Label>
+                <Input
+                  value={caseForm.category}
+                  onChange={(e) => setCaseForm((f) => ({ ...f, category: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Transport</Label>
+                <Input
+                  value={caseForm.transportUnit}
+                  onChange={(e) => setCaseForm((f) => ({ ...f, transportUnit: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label>ESI</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={caseForm.esi}
+                  onChange={(e) => setCaseForm((f) => ({ ...f, esi: e.target.value }))}
+                >
+                  {([1, 2, 3, 4] as const).map((n) => (
+                    <option key={n} value={n}>
+                      {n} · {ESI[n].label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>ETA (minutes)</Label>
+                <Input
+                  type="number"
+                  value={caseForm.etaMinutesFromNow}
+                  onChange={(e) =>
+                    setCaseForm((f) => ({ ...f, etaMinutesFromNow: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Preferred bay (optional)</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={caseForm.bayId}
+                onChange={(e) => setCaseForm((f) => ({ ...f, bayId: e.target.value }))}
+              >
+                <option value="">Unassigned</option>
+                {bays.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.label} ({b.status})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setCaseSheetOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={busy} onClick={() => void saveCase()}>
+              {editingCaseId ? "Save changes" : "Create case"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* Bay sheet */}
+      <Sheet open={baySheetOpen} onOpenChange={setBaySheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-sm">
+          <SheetHeader>
+            <SheetTitle>{bayForm.bayId ? "Edit bay" : "Add bay"}</SheetTitle>
+            <SheetDescription>Update bay status and readiness notes.</SheetDescription>
+          </SheetHeader>
+          <div className="flex flex-1 flex-col gap-3 px-4 pb-4">
+            <div className="space-y-1.5">
+              <Label>Label</Label>
+              <Input
+                value={bayForm.label}
+                onChange={(e) => setBayForm((f) => ({ ...f, label: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={bayForm.status}
+                onChange={(e) =>
+                  setBayForm((f) => ({ ...f, status: e.target.value as BayStatus }))
+                }
+              >
+                <option value="available">Available</option>
+                <option value="reserved">Reserved</option>
+                <option value="in_care">In care</option>
+                <option value="turnover">Turnover</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Detail</Label>
+              <Input
+                value={bayForm.detail}
+                onChange={(e) => setBayForm((f) => ({ ...f, detail: e.target.value }))}
+              />
+            </div>
+          </div>
+          <SheetFooter>
+            {bayForm.bayId ? (
+              <Button
+                variant="outline"
+                className="text-destructive"
+                disabled={busy}
+                onClick={() => {
+                  void deleteBay(bayForm.bayId!).then(() => setBaySheetOpen(false));
+                }}
+              >
+                Delete
+              </Button>
+            ) : null}
+            <Button variant="outline" onClick={() => setBaySheetOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={busy} onClick={() => void saveBay()}>
+              Save
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* Lead sheet */}
+      <Sheet open={leadSheetOpen} onOpenChange={setLeadSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-sm">
+          <SheetHeader>
+            <SheetTitle>Add clinical lead</SheetTitle>
+            <SheetDescription>Staff available for pre-arrival coordination.</SheetDescription>
+          </SheetHeader>
+          <div className="flex flex-1 flex-col gap-3 px-4 pb-4">
+            <div className="space-y-1.5">
+              <Label>Name</Label>
+              <Input
+                value={leadForm.name}
+                onChange={(e) => setLeadForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Role</Label>
+              <Input
+                value={leadForm.role}
+                onChange={(e) => setLeadForm((f) => ({ ...f, role: e.target.value }))}
+                placeholder="Attending lead"
+              />
+            </div>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setLeadSheetOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={busy} onClick={() => void saveLead()}>
+              Add lead
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
