@@ -49,8 +49,7 @@
         }
       ],
       "expo-document-picker",
-      "expo-file-system",
-      "react-native-webview"
+      "expo-file-system"
     ],
     "experiments": {
       "typedRoutes": true,
