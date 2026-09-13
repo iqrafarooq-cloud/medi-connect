@@ -8,6 +8,7 @@ import {
   real,
   text,
   timestamp,
+  uniqueIndex,
   vector,
 } from "drizzle-orm/pg-core";
 
@@ -116,9 +117,9 @@ export const extractedMedication = pgTable(
   "extracted_medication",
   {
     id: text("id").primaryKey(),
-    documentId: text("document_id")
-      .notNull()
-      .references(() => clinicalDocument.id, { onDelete: "cascade" }),
+    documentId: text("document_id").references(() => clinicalDocument.id, {
+      onDelete: "cascade",
+    }),
     patientId: text("patient_id").notNull(),
     name: text("name").notNull(),
     dose: text("dose"),
@@ -127,8 +128,14 @@ export const extractedMedication = pgTable(
     status: text("status").notNull().default("active"),
     startedAt: timestamp("started_at"),
     prescribingProvider: text("prescribing_provider"),
+    source: text("source").notNull().default("extracted"),
+    idempotencyKey: text("idempotency_key"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => [index("extracted_medication_patient_id_idx").on(table.patientId)],
+  (table) => [
+    index("extracted_medication_patient_id_idx").on(table.patientId),
+    uniqueIndex("extracted_medication_idempotency_uidx").on(table.patientId, table.idempotencyKey),
+  ],
 );
 
 export const extractedAllergy = pgTable(
@@ -139,14 +146,93 @@ export const extractedAllergy = pgTable(
     substance: text("substance").notNull(),
     reaction: text("reaction"),
     severity: text("severity"),
-    sourceDocumentId: text("source_document_id")
-      .notNull()
-      .references(() => clinicalDocument.id, { onDelete: "cascade" }),
+    allergyType: text("allergy_type").notNull().default("medication"),
+    source: text("source").notNull().default("extracted"),
+    sourceDocumentId: text("source_document_id").references(() => clinicalDocument.id, {
+      onDelete: "cascade",
+    }),
     dataQualityFlag: text("data_quality_flag"),
+    idempotencyKey: text("idempotency_key"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
     index("extracted_allergy_patient_id_idx").on(table.patientId),
     index("extracted_allergy_substance_idx").on(table.patientId, table.substance),
+    uniqueIndex("extracted_allergy_idempotency_uidx").on(table.patientId, table.idempotencyKey),
+  ],
+);
+
+export const diagnosis = pgTable(
+  "diagnosis",
+  {
+    id: text("id").primaryKey(),
+    patientId: text("patient_id")
+      .notNull()
+      .references(() => patient.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    status: text("status").notNull().default("current"),
+    diagnosedAt: timestamp("diagnosed_at"),
+    notes: text("notes"),
+    source: text("source").notNull().default("patient"),
+    sourceDocumentId: text("source_document_id").references(() => clinicalDocument.id, {
+      onDelete: "set null",
+    }),
+    idempotencyKey: text("idempotency_key"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("diagnosis_patient_id_idx").on(table.patientId),
+    uniqueIndex("diagnosis_idempotency_uidx").on(table.patientId, table.idempotencyKey),
+  ],
+);
+
+export const procedure = pgTable(
+  "procedure",
+  {
+    id: text("id").primaryKey(),
+    patientId: text("patient_id")
+      .notNull()
+      .references(() => patient.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    status: text("status").notNull().default("previous"),
+    performedAt: timestamp("performed_at"),
+    facility: text("facility"),
+    notes: text("notes"),
+    source: text("source").notNull().default("patient"),
+    sourceDocumentId: text("source_document_id").references(() => clinicalDocument.id, {
+      onDelete: "set null",
+    }),
+    idempotencyKey: text("idempotency_key"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("procedure_patient_id_idx").on(table.patientId),
+    uniqueIndex("procedure_idempotency_uidx").on(table.patientId, table.idempotencyKey),
+  ],
+);
+
+export const patientHealthMutation = pgTable(
+  "patient_health_mutation",
+  {
+    id: text("id").primaryKey(),
+    patientId: text("patient_id")
+      .notNull()
+      .references(() => patient.id, { onDelete: "cascade" }),
+    idempotencyKey: text("idempotency_key").notNull(),
+    kind: text("kind").notNull(),
+    resourceId: text("resource_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("patient_health_mutation_key_uidx").on(table.patientId, table.idempotencyKey),
   ],
 );
 

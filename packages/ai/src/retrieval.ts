@@ -146,12 +146,12 @@ export async function queryReconciledAllergies(patientId: string) {
         substance: row.substance,
         reaction: row.reaction,
         severity: row.severity,
-        sourceDocumentIds: [row.sourceDocumentId],
+        sourceDocumentIds: row.sourceDocumentId ? [row.sourceDocumentId] : [],
         dataQualityFlags: row.dataQualityFlag ? [row.dataQualityFlag] : [],
       });
       continue;
     }
-    if (!existing.sourceDocumentIds.includes(row.sourceDocumentId)) {
+    if (row.sourceDocumentId && !existing.sourceDocumentIds.includes(row.sourceDocumentId)) {
       existing.sourceDocumentIds.push(row.sourceDocumentId);
     }
     if (row.reaction && existing.reaction && row.reaction !== existing.reaction) {

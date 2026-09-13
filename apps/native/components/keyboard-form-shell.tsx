@@ -18,8 +18,8 @@ export function KeyboardFormShell({ children, footer, onBack, title }: Props) {
 
   return (
     <View className="flex-1 bg-background">
-      <View style={{ paddingTop: insets.top }} className="px-2">
-        <View className="h-12 flex-row items-center">
+      <View style={{ paddingTop: insets.top }} className="px-1">
+        <View className="h-11 flex-row items-center">
           {onBack ? (
             <Pressable
               onPress={onBack}
@@ -45,8 +45,8 @@ export function KeyboardFormShell({ children, footer, onBack, title }: Props) {
         style={{ flex: 1 }}
         contentContainerStyle={{
           flexGrow: 1,
-          paddingHorizontal: 24,
-          paddingBottom: footer ? 16 : 24,
+          paddingHorizontal: 16,
+          paddingBottom: footer ? 12 : 16,
         }}
         keyboardShouldPersistTaps="handled"
         bottomOffset={24}
@@ -58,8 +58,8 @@ export function KeyboardFormShell({ children, footer, onBack, title }: Props) {
       {footer ? (
         <KeyboardStickyView offset={{ closed: 0, opened: 8 }}>
           <View
-            className="border-t border-border bg-background px-6 pt-3"
-            style={{ paddingBottom: Math.max(insets.bottom, 12) }}
+            className="border-t border-border bg-background px-4 pt-2"
+            style={{ paddingBottom: Math.max(insets.bottom, 10) }}
           >
             {footer}
           </View>
