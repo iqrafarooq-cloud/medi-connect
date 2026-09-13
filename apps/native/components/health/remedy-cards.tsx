@@ -48,27 +48,28 @@ export function RemedyCards({
     <View className="mt-3 gap-3">
       <Pressable
         onPress={onStart}
-        className="flex-row items-center overflow-hidden rounded-2xl border border-border bg-surface px-4 py-4"
+        className="overflow-hidden rounded-2xl border border-border bg-surface"
         accessibilityRole="button"
         accessibilityLabel="Start remedial measure"
+        style={({ pressed }) => ({ opacity: pressed ? 0.88 : 1 })}
       >
-        <View
-          className="h-11 w-11 items-center justify-center rounded-xl"
-          style={{ backgroundColor: "rgba(0, 168, 150, 0.14)" }}
-        >
-          <Ionicons name="leaf" size={20} color={palette.secondary} />
+        <View className="flex-row items-start gap-3 px-4 pt-4 pb-3">
+          <View
+            className="h-10 w-10 items-center justify-center rounded-xl"
+            style={{ backgroundColor: "rgba(5, 150, 105, 0.12)" }}
+          >
+            <Ionicons name="leaf" size={20} color={palette.primary} />
+          </View>
+          <View className="min-w-0 flex-1">
+            <Text className="text-[17px] font-bold text-foreground tracking-tight">Remedial measure</Text>
+            <Text className="mt-0.5 text-[13px] leading-5 text-muted">
+              Ten questions. Rest, movement, and fluids — never medicine.
+            </Text>
+          </View>
         </View>
-        <View className="ml-3 min-w-0 flex-1 pr-3">
-          <Text className="text-[16px] font-bold text-foreground tracking-tight">Remedial measure</Text>
-          <Text className="mt-0.5 text-[13px] leading-5 text-muted">
-            Ten questions. Rest, movement, and fluids — never medicine.
-          </Text>
-        </View>
-        <View
-          className="h-11 w-11 items-center justify-center rounded-full"
-          style={{ backgroundColor: palette.primary }}
-        >
-          <Ionicons name="add" size={24} color={palette.white} />
+        <View className="min-h-[48px] flex-row items-center justify-between border-t border-border px-4">
+          <Text className="text-[15px] font-semibold text-primary">Start check</Text>
+          <Ionicons name="chevron-forward" size={18} color={palette.primary} />
         </View>
       </Pressable>
 
