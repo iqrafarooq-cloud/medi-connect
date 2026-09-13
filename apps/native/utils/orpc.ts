@@ -1,11 +1,11 @@
 import type { AppRouterClient } from "@medi-connect/api/routers/index";
-import { env } from "@medi-connect/env/native";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { Platform } from "react-native";
 
+import { nativeServerUrl } from "@/lib/api-url";
 import { authClient } from "@/lib/auth-client";
 
 export const queryClient = new QueryClient({
@@ -29,7 +29,7 @@ async function expoFetch(request: Request, init?: RequestInit) {
 }
 
 export const link = new RPCLink({
-  url: `${env.EXPO_PUBLIC_SERVER_URL}/api/rpc`,
+  url: `${nativeServerUrl}/api/rpc`,
   fetch(request, init) {
     return expoFetch(request, {
       ...init,
