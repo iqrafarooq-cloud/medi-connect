@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Input, Label, Spinner, TextField, useToast } from "heroui-native";
+import { Input, Label, TextField, useToast } from "heroui-native";
 import { useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
@@ -141,32 +141,14 @@ export default function AddFactScreen() {
       title={TITLES[kind]}
       onBack={() => router.back()}
       footer={
-        <PrimaryButton size="lg" onPress={() => void save()} isDisabled={busy}>
-          {busy ? <Spinner size="sm" color="default" /> : <PrimaryButton.Label>Save</PrimaryButton.Label>}
+        <PrimaryButton size="lg" onPress={() => void save()} isLoading={busy}>
+          <PrimaryButton.Label>Save</PrimaryButton.Label>
         </PrimaryButton>
       }
     >
-      <View>
-        <TextField>
-          <Label>{kind === "allergy" ? "Substance" : "Name"}</Label>
-          <Input value={name} onChangeText={setName} autoCapitalize="sentences" />
-        </TextField>
-      </View>
-
-      {kind !== "allergy" ? (
-        <View className="mt-4">
-          <Segment
-            value={status}
-            options={[
-              { value: "current", label: "Current" },
-              { value: "previous", label: "Previous" },
-            ]}
-            onChange={(value) => setStatus(value as "current" | "previous")}
-          />
-        </View>
-      ) : (
+      {kind === "allergy" ? (
         <>
-          <Text className="mt-5 mb-2 text-sm font-medium text-foreground">Type</Text>
+          <Text className="mb-2 text-sm font-medium text-foreground">Type</Text>
           <ChipRow>
             {(["medication", "food", "other"] as const).map((item) => (
               <Chip
@@ -189,7 +171,33 @@ export default function AddFactScreen() {
             ))}
           </ChipRow>
         </>
+      ) : (
+        <View className="mt-4">
+          <Segment
+            value={status}
+            options={[
+              { value: "current", label: "Current" },
+              { value: "previous", label: "Previous" },
+            ]}
+            onChange={(value) => setStatus(value as "current" | "previous")}
+          />
+        </View>
       )}
+
+      {kind !== "allergy" ? (
+        <DateField
+          label={kind === "medication" ? "Start date" : kind === "surgery" ? "Date" : "Date"}
+          value={date}
+          onChange={setDate}
+        />
+      ) : null}
+
+      <View className={kind === "allergy" ? "mt-5" : "mt-4"}>
+        <TextField>
+          <Label>{kind === "allergy" ? "Substance" : "Name"}</Label>
+          <Input value={name} onChangeText={setName} autoCapitalize="sentences" />
+        </TextField>
+      </View>
 
       {kind === "medication" ? (
         <>
@@ -215,14 +223,6 @@ export default function AddFactScreen() {
             <Input value={facility} onChangeText={setFacility} />
           </TextField>
         </View>
-      ) : null}
-
-      {kind !== "allergy" ? (
-        <DateField
-          label={kind === "medication" ? "Start date" : kind === "surgery" ? "Date" : "Date"}
-          value={date}
-          onChange={setDate}
-        />
       ) : null}
 
       <View className="mt-4">

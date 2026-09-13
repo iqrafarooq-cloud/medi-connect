@@ -56,6 +56,8 @@ export default function HealthHubScreen() {
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 96 }}
           keyboardShouldPersistTaps="handled"
           contentInsetAdjustmentBehavior="never"
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
         >
           <View className="px-4 pt-1">
             <HealthSummaryCard
@@ -78,7 +80,6 @@ export default function HealthHubScreen() {
             />
             <RemedyCards
               last={remedy.data?.last ?? null}
-              clinics={remedy.data?.clinics ?? []}
               onStart={() => router.push("/(app)/health/remedy")}
             />
           </View>

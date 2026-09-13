@@ -4,7 +4,6 @@ import {
   FieldError,
   Input,
   Label,
-  Spinner,
   TextField,
   useToast,
 } from "heroui-native";
@@ -65,8 +64,8 @@ export default function SignInScreen() {
       footer={
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
-            <PrimaryButton size="lg" onPress={form.handleSubmit} isDisabled={isSubmitting}>
-              {isSubmitting ? <Spinner size="sm" color="default" /> : <PrimaryButton.Label>Log in</PrimaryButton.Label>}
+            <PrimaryButton size="lg" onPress={form.handleSubmit} isLoading={isSubmitting}>
+              <PrimaryButton.Label>Log in</PrimaryButton.Label>
             </PrimaryButton>
           )}
         </form.Subscribe>

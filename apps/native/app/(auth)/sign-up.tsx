@@ -12,7 +12,6 @@ import {
   FieldError,
   Input,
   Label,
-  Spinner,
   TextField,
   useToast,
 } from "heroui-native";
@@ -198,12 +197,8 @@ export default function SignUpScreen() {
                 <PrimaryButton.Label>Continue</PrimaryButton.Label>
               </PrimaryButton>
             ) : (
-              <PrimaryButton size="lg" onPress={form.handleSubmit} isDisabled={isSubmitting}>
-                {isSubmitting ? (
-                  <Spinner size="sm" color="default" />
-                ) : (
-                  <PrimaryButton.Label>Create patient account</PrimaryButton.Label>
-                )}
+              <PrimaryButton size="lg" onPress={form.handleSubmit} isLoading={isSubmitting}>
+                <PrimaryButton.Label>Create patient account</PrimaryButton.Label>
               </PrimaryButton>
             )
           }
@@ -315,39 +310,31 @@ export default function SignUpScreen() {
         </View>
       ) : (
         <View className="gap-4">
-          <form.Field name="phone">
+          <form.Field name="gender">
             {(field) => (
-              <TextField>
-                <Label>Mobile number</Label>
-                <Input
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChangeText={(text) => field.handleChange(maskPakistanPhoneInput(text))}
-                  placeholder="03XX-XXXXXXX"
-                  keyboardType="phone-pad"
-                  autoComplete="tel"
-                  textContentType="telephoneNumber"
-                  returnKeyType="next"
-                  blurOnSubmit={false}
-                  onSubmitEditing={() => cnicRef.current?.focus()}
-                />
-              </TextField>
-            )}
-          </form.Field>
-          <form.Field name="cnic">
-            {(field) => (
-              <TextField>
-                <Label>CNIC</Label>
-                <Input
-                  ref={cnicRef}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChangeText={(text) => field.handleChange(maskCnicInput(text))}
-                  placeholder="xxxxx-xxxxxxx-x"
-                  keyboardType="number-pad"
-                  returnKeyType="done"
-                />
-              </TextField>
+              <View>
+                <Label>Gender</Label>
+                <View className="mt-2 flex-row gap-2">
+                  {genders.map((option) => {
+                    const selected = field.state.value === option.value;
+                    return (
+                      <Pressable
+                        key={option.value}
+                        onPress={() => field.handleChange(option.value)}
+                        className={`flex-1 items-center rounded-xl border py-3 ${
+                          selected ? "border-primary bg-primary/10" : "border-border bg-surface"
+                        }`}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                      >
+                        <Text className={`font-medium ${selected ? "text-primary" : "text-foreground"}`}>
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
             )}
           </form.Field>
           <form.Field name="dateOfBirth">
@@ -392,31 +379,39 @@ export default function SignUpScreen() {
               </View>
             )}
           </form.Field>
-          <form.Field name="gender">
+          <form.Field name="phone">
             {(field) => (
-              <View>
-                <Label>Gender</Label>
-                <View className="mt-2 flex-row gap-2">
-                  {genders.map((option) => {
-                    const selected = field.state.value === option.value;
-                    return (
-                      <Pressable
-                        key={option.value}
-                        onPress={() => field.handleChange(option.value)}
-                        className={`flex-1 items-center rounded-xl border py-3 ${
-                          selected ? "border-primary bg-primary/10" : "border-border bg-surface"
-                        }`}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
-                      >
-                        <Text className={`font-medium ${selected ? "text-primary" : "text-foreground"}`}>
-                          {option.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
+              <TextField>
+                <Label>Mobile number</Label>
+                <Input
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChangeText={(text) => field.handleChange(maskPakistanPhoneInput(text))}
+                  placeholder="03XX-XXXXXXX"
+                  keyboardType="phone-pad"
+                  autoComplete="tel"
+                  textContentType="telephoneNumber"
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                  onSubmitEditing={() => cnicRef.current?.focus()}
+                />
+              </TextField>
+            )}
+          </form.Field>
+          <form.Field name="cnic">
+            {(field) => (
+              <TextField>
+                <Label>CNIC</Label>
+                <Input
+                  ref={cnicRef}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChangeText={(text) => field.handleChange(maskCnicInput(text))}
+                  placeholder="xxxxx-xxxxxxx-x"
+                  keyboardType="number-pad"
+                  returnKeyType="done"
+                />
+              </TextField>
             )}
           </form.Field>
         </View>

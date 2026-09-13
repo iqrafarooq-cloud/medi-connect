@@ -2,6 +2,17 @@
 @import "uniwind";
 @import "heroui-native/styles";
 
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /*
   Humane Clinical Mobile System
   Primary #059669 · Secondary #00A896 · Tertiary #E63946 · Neutral #1B2830

@@ -1,12 +1,20 @@
-import { formatCnic, formatPakistanPhone } from "@/lib/pakistan";
+import { Ionicons } from "@expo/vector-icons";
+import type { ActivityEvent } from "@medi-connect/api/lib/patient-activity";
 import { useQuery } from "@tanstack/react-query";
-import { Button, Spinner } from "heroui-native";
-import { Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Spinner } from "heroui-native";
+import { Pressable, Text, View } from "react-native";
 
 import { Container } from "@/components/container";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ProfileActivity } from "@/components/profile/activity";
+import { ProfileDetailRow } from "@/components/profile/details";
+import { GroupedList, ProfileIdentity, ProfileSection } from "@/components/profile/identity";
+import { ProfileVisits } from "@/components/profile/visits";
 import { authClient } from "@/lib/auth-client";
-import { queryClient, orpc } from "@/utils/orpc";
+import { healthItemHref } from "@/lib/document";
+import { formatCnic, formatPakistanPhone } from "@/lib/pakistan";
+import { palette } from "@/theme";
+import { orpc, queryClient } from "@/utils/orpc";
 
 const genderLabel: Record<string, string> = {
   male: "Male",
@@ -26,19 +34,15 @@ function formatDob(value: string | Date | null | undefined): string {
   });
 }
 
-function Detail({ label, value, isLast }: { label: string; value: string; isLast?: boolean }) {
-  return (
-    <View className={`py-3 ${isLast ? "" : "border-b border-border"}`}>
-      <Text className="text-xs font-medium text-muted">{label}</Text>
-      <Text className="mt-0.5 text-[15px] text-foreground">{value}</Text>
-    </View>
-  );
-}
-
 export default function ProfileScreen() {
+  const router = useRouter();
   const { data: session } = authClient.useSession();
   const me = useQuery({
     ...orpc.patient.me.queryOptions(),
+    enabled: Boolean(session?.user),
+  });
+  const activity = useQuery({
+    ...orpc.health.activity.queryOptions(),
     enabled: Boolean(session?.user),
   });
 
@@ -47,41 +51,92 @@ export default function ProfileScreen() {
     queryClient.clear();
   }
 
-  return (
-    <Container className="px-4">
-      <View className="mb-4 flex-row items-start justify-between">
-        <Text className="flex-1 pr-4 font-bold text-2xl text-foreground tracking-tight">
-          Your details
-        </Text>
-        <ThemeToggle />
-      </View>
+  function openEvent(event: ActivityEvent) {
+    if (event.detailKind && event.detailId) {
+      router.push(healthItemHref(event.detailKind, event.detailId));
+      return;
+    }
+    if (event.kind === "visit") {
+      router.push("/(app)/clinic");
+      return;
+    }
+    if (event.kind === "remedy") {
+      router.push("/(app)/health/remedy");
+    }
+  }
 
+  const name = me.data?.fullName ?? session?.user.name ?? "Your profile";
+  const email = me.data?.email ?? session?.user.email ?? "";
+
+  return (
+    <Container className="px-4 pt-1">
       {me.isLoading ? (
         <View className="py-12 items-center">
           <Spinner size="sm" />
         </View>
-      ) : me.data ? (
-        <View className="rounded-2xl border border-border bg-surface px-4">
-          <Detail label="Name" value={me.data.fullName} />
-          <Detail label="Email" value={me.data.email} />
-          <Detail label="Mobile" value={me.data.phone ? formatPakistanPhone(me.data.phone) : "—"} />
-          <Detail label="CNIC" value={formatCnic(me.data.cnic)} />
-          <Detail label="Date of birth" value={formatDob(me.data.dateOfBirth)} />
-          <Detail label="Gender" value={genderLabel[me.data.gender] ?? me.data.gender} isLast />
-        </View>
       ) : (
-        <View className="mt-6 rounded-2xl border border-border bg-surface p-4">
-          <Text className="text-foreground font-medium">{session?.user.name}</Text>
-          <Text className="text-muted text-sm mt-1">{session?.user.email}</Text>
-          <Text className="text-muted text-sm mt-3">
-            Your health profile could not be loaded. You can still sign out and try again.
-          </Text>
-        </View>
+        <>
+          <ProfileIdentity name={name} email={email} stats={activity.data?.stats ?? null} />
+
+          {me.data ? (
+            <ProfileSection title="Your details">
+              <GroupedList>
+                <ProfileDetailRow
+                  icon="call-outline"
+                  label="Mobile"
+                  value={me.data.phone ? formatPakistanPhone(me.data.phone) : "—"}
+                />
+                <ProfileDetailRow icon="card-outline" label="CNIC" value={formatCnic(me.data.cnic)} />
+                <ProfileDetailRow icon="calendar-outline" label="Date of birth" value={formatDob(me.data.dateOfBirth)} />
+                <ProfileDetailRow
+                  icon="male-female-outline"
+                  label="Gender"
+                  value={genderLabel[me.data.gender] ?? me.data.gender}
+                  last
+                />
+              </GroupedList>
+            </ProfileSection>
+          ) : (
+            <View className="mt-7 rounded-2xl border border-border bg-surface p-4">
+              <Text className="text-[15px] font-semibold text-foreground">Couldn’t load your details</Text>
+              <Text className="mt-1 text-[13px] leading-5 text-muted">
+                Sign out and try again if this keeps happening.
+              </Text>
+            </View>
+          )}
+
+          {activity.isLoading ? (
+            <View className="py-10 items-center">
+              <Spinner size="sm" />
+            </View>
+          ) : activity.data ? (
+            <>
+              <ProfileVisits visits={activity.data.visits} onOpenClinics={() => router.push("/(app)/clinic")} />
+              <ProfileActivity events={activity.data.events} onPressEvent={openEvent} />
+            </>
+          ) : (
+            <View className="mt-7 rounded-2xl border border-border bg-surface p-4">
+              <Text className="text-[15px] font-semibold text-foreground">History unavailable</Text>
+              <Text className="mt-1 text-[13px] leading-5 text-muted">
+                Your clinic visits and activity could not be loaded right now.
+              </Text>
+            </View>
+          )}
+        </>
       )}
 
-      <Button variant="danger-soft" onPress={() => void signOut()} className="mt-8">
-        <Button.Label>Sign out</Button.Label>
-      </Button>
+      <Pressable
+        onPress={() => void signOut()}
+        className="mt-8 mb-4 h-12 flex-row items-center justify-center gap-2 rounded-xl"
+        style={{ backgroundColor: "rgba(230, 57, 70, 0.12)" }}
+        accessibilityRole="button"
+        accessibilityLabel="Sign out"
+      >
+        <Ionicons name="log-out-outline" size={18} color={palette.tertiary} />
+        <Text className="text-[15px] font-semibold" style={{ color: palette.tertiary }}>
+          Sign out
+        </Text>
+      </Pressable>
     </Container>
   );
 }

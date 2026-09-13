@@ -5,6 +5,7 @@ import {
   assembleRemedyHub,
   classifyRemedySeverity,
   defaultRemedySuggestions,
+  listEnrolledClinics,
   rankNearbyClinics,
   remedyAnswersInput,
   REMEDY_QUESTIONS,
@@ -153,6 +154,43 @@ describe("rankNearbyClinics", () => {
     assert.equal(ranked[0]?.id, "karachi");
     assert.equal(ranked[1]?.id, "lahore");
     assert.ok((ranked[0]?.distanceKm ?? 99) < (ranked[1]?.distanceKm ?? 0));
+    assert.equal(ranked[0]?.latitude, 24.87);
+    assert.equal(ranked[0]?.longitude, 67.03);
+  });
+
+  it("caps the health hub list at three clinics", () => {
+    const many = Array.from({ length: 5 }, (_, i) => ({
+      id: `c${i}`,
+      name: `Clinic ${i}`,
+      type: "clinic",
+      address: "Mall Road",
+      city: "Lahore",
+      phone: "0421111111",
+      status: "active",
+      latitude: 31.52 + i * 0.01,
+      longitude: 74.35,
+    }));
+    assert.equal(rankNearbyClinics(many, { latitude: 31.52, longitude: 74.35 }).length, 3);
+  });
+});
+
+describe("listEnrolledClinics", () => {
+  it("returns every active clinic with coordinates and does not cap at three", () => {
+    const many = Array.from({ length: 5 }, (_, i) => ({
+      id: `c${i}`,
+      name: `Clinic ${i}`,
+      type: "clinic",
+      address: "Mall Road",
+      city: "Lahore",
+      phone: "0421111111",
+      status: i === 4 ? "pending_verification" : "active",
+      latitude: 31.52 + i * 0.01,
+      longitude: 74.35,
+    }));
+    const listed = listEnrolledClinics(many, { latitude: 31.52, longitude: 74.35 });
+    assert.equal(listed.length, 4);
+    assert.ok(listed.every((clinic) => typeof clinic.latitude === "number"));
+    assert.equal(listed[0]?.id, "c0");
   });
 });
 
@@ -179,6 +217,8 @@ describe("assembleRemedyHub", () => {
           city: "Karachi",
           phone: "0212222222",
           distanceKm: 1.2,
+          latitude: 24.87,
+          longitude: 67.03,
         },
       ],
     });
@@ -204,6 +244,8 @@ describe("assembleRemedyHub", () => {
               city: "Karachi",
               phone: "0212222222",
               distanceKm: 1.2,
+              latitude: 24.87,
+              longitude: 67.03,
             },
           ],
     });

@@ -13,7 +13,7 @@ export function Chip({
   return (
     <Pressable
       onPress={onPress}
-      className={`h-10 shrink-0 items-center justify-center rounded-full px-4 ${
+      className={`h-11 shrink-0 items-center justify-center rounded-full px-4 ${
         active ? "bg-primary" : "border border-border bg-surface"
       }`}
       accessibilityRole="button"

@@ -1,9 +1,10 @@
-import { env } from "@medi-connect/env/native";
 import { resolveUploadMime } from "@medi-connect/api/lib/health-facts";
+import * as Crypto from "expo-crypto";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { Platform } from "react-native";
 
+import { nativeServerUrl } from "@/lib/api-url";
 import { authClient } from "@/lib/auth-client";
 import { parseUploadResponse } from "@/lib/health-upload";
 
@@ -14,7 +15,7 @@ export type PickedFile = {
 };
 
 export function newIdempotencyKey() {
-  return crypto.randomUUID();
+  return Crypto.randomUUID();
 }
 
 export function toIsoDate(date: Date): string {
@@ -110,7 +111,7 @@ export async function uploadHealthRecord(params: {
   };
   if (params.notes) fields.notes = params.notes;
 
-  const url = `${env.EXPO_PUBLIC_SERVER_URL}/api/uploads/patient-self`;
+  const url = `${nativeServerUrl}/api/uploads/patient-self`;
 
   if (Platform.OS === "web") {
     const blobResponse = await fetch(params.file.uri);

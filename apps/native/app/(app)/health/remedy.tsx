@@ -5,20 +5,41 @@ import {
   type RemedyAnswers,
 } from "@medi-connect/api/lib/health-remedy";
 import { useRouter } from "expo-router";
-import { Spinner, useToast } from "heroui-native";
+import { useToast } from "heroui-native";
 import { useMemo, useRef, useState } from "react";
 import { Text, View } from "react-native";
 
 import { Chip, ChipRow } from "@/components/health/chips";
-import { RemedyClinicCard, RemedySuggestionList } from "@/components/health/remedy-cards";
+import { RemedySuggestionList } from "@/components/health/remedy-cards";
 import { KeyboardFormShell } from "@/components/keyboard-form-shell";
 import { PrimaryButton } from "@/components/primary-button";
 import { getRpcErrorMessage } from "@/lib/form-errors";
+import { finishRemedy, remedyResultNav } from "@/lib/remedy-nav";
+import { palette } from "@/theme";
 import { client, orpc, queryClient } from "@/utils/orpc";
 
 type Result = Awaited<ReturnType<typeof client.health.checkRemedy>>;
 
 const EMPTY: Partial<RemedyAnswers> = {};
+
+function answeredCount(answers: Partial<RemedyAnswers>) {
+  return REMEDY_QUESTIONS.filter((question) => {
+    const selected = answers[question.id];
+    return question.multiple
+      ? Array.isArray(selected) && selected.length > 0
+      : typeof selected === "string" && selected.length > 0;
+  }).length;
+}
+
+function severityStyle(severity: Result["severity"]) {
+  if (severity === "severe") {
+    return { label: "Clinic care", backgroundColor: "rgba(230, 57, 70, 0.12)", color: palette.tertiary };
+  }
+  if (severity === "watch") {
+    return { label: "Keep watch", backgroundColor: "rgba(166, 124, 0, 0.16)", color: "#8A6400" };
+  }
+  return { label: "Self-care", backgroundColor: "rgba(5, 150, 105, 0.12)", color: palette.primary };
+}
 
 export default function RemedyScreen() {
   const router = useRouter();
@@ -30,6 +51,8 @@ export default function RemedyScreen() {
 
   const parsed = useMemo(() => remedyAnswersInput.safeParse(answers), [answers]);
   const ready = parsed.success;
+  const done = answeredCount(answers);
+  const total = REMEDY_QUESTIONS.length;
 
   function pick(id: (typeof REMEDY_QUESTIONS)[number]["id"], value: string, multiple?: boolean) {
     setAnswers((current) => {
@@ -64,32 +87,35 @@ export default function RemedyScreen() {
 
   if (result) {
     const severe = result.severity === "severe";
+    const mark = severityStyle(result.severity);
+    const action = remedyResultNav(result.severity);
     return (
       <KeyboardFormShell
-        title="Remedial measure"
-        onBack={() => router.back()}
+        title="Feeling unwell"
+        onBack={() => finishRemedy(router, "health")}
         footer={
-          <PrimaryButton size="lg" onPress={() => router.back()}>
-            <PrimaryButton.Label>Done</PrimaryButton.Label>
+          <PrimaryButton size="lg" onPress={() => finishRemedy(router, action.after)}>
+            <PrimaryButton.Label>{action.label}</PrimaryButton.Label>
           </PrimaryButton>
         }
       >
-        <Text className="mt-1 text-[20px] font-bold text-foreground tracking-tight">
+        <View
+          className="self-start rounded-full px-3 py-1.5"
+          style={{ backgroundColor: mark.backgroundColor }}
+        >
+          <Text className="text-[12px] font-semibold" style={{ color: mark.color }}>
+            {mark.label}
+          </Text>
+        </View>
+        <Text className="mt-3 text-[24px] font-bold text-foreground tracking-tight">
           {severe ? "Contact a clinic" : "Your self-care plan"}
         </Text>
         <Text className="mt-2 text-[15px] leading-6 text-muted">{result.summary}</Text>
         {severe ? (
-          <View className="mt-5 gap-3">
-            {result.clinics.length > 0 ? (
-              result.clinics.map((clinic) => <RemedyClinicCard key={clinic.id} clinic={clinic} />)
-            ) : (
-              <View className="rounded-2xl border border-border bg-surface px-4 py-4">
-                <Text className="text-[15px] leading-6 text-foreground">
-                  No verified clinic is listed yet. Use the Clinic tab, or call emergency services if you cannot wait.
-                </Text>
-              </View>
-            )}
-          </View>
+          <Text className="mt-5 text-[15px] leading-6 text-muted">
+            Open Clinic to pick a nearby enrolled facility and tell them you’re on the way. Call
+            emergency services if you cannot wait.
+          </Text>
         ) : (
           <View className="mt-5">
             <RemedySuggestionList suggestions={result.suggestions} />
@@ -102,24 +128,53 @@ export default function RemedyScreen() {
 
   return (
     <KeyboardFormShell
-      title="Remedial measure"
+        title="Feeling unwell"
       onBack={() => router.back()}
       footer={
-        <PrimaryButton size="lg" onPress={() => void submit()} isDisabled={!ready || busy}>
-          {busy ? <Spinner size="sm" color="default" /> : <PrimaryButton.Label>Get support</PrimaryButton.Label>}
+        <PrimaryButton size="lg" onPress={() => void submit()} isDisabled={!ready} isLoading={busy}>
+          <PrimaryButton.Label>Get support</PrimaryButton.Label>
         </PrimaryButton>
       }
     >
-      <Text className="mt-1 text-[15px] leading-6 text-muted">
-        Answer all ten. Suggestions stay at rest, movement, fluids, food, and sleep — never medicine.
+      <Text className="mt-1 font-bold text-[26px] text-foreground tracking-tight">A short check-in</Text>
+      <Text className="mt-1.5 text-[15px] leading-6 text-muted">
+        Ten questions. Suggestions stay at rest, movement, fluids, food, and sleep — never medicine.
       </Text>
+
+      <View className="mt-5 mb-1 flex-row items-center justify-between">
+        <Text className="text-[13px] font-semibold text-foreground">
+          {done} of {total} answered
+        </Text>
+        <Text className="text-[13px] text-muted">{ready ? "Ready" : "Answer each one"}</Text>
+      </View>
+      <View className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-secondary">
+        <View
+          className="h-full rounded-full bg-primary"
+          style={{ width: `${Math.round((done / total) * 100)}%` }}
+        />
+      </View>
+
       {REMEDY_QUESTIONS.map((question, index) => {
         const selected = answers[question.id];
+        const filled = question.multiple
+          ? Array.isArray(selected) && selected.length > 0
+          : typeof selected === "string" && selected.length > 0;
         return (
-          <View key={question.id} className={index === 0 ? "mt-5" : "mt-6"}>
-            <Text className="mb-2 text-[14px] font-semibold text-foreground">
-              {index + 1}. {question.prompt}
-            </Text>
+          <View key={question.id} className={index === 0 ? "mt-6" : "mt-7"}>
+            <View className="mb-2.5 flex-row items-start gap-3">
+              <View
+                className={`mt-0.5 h-7 w-7 items-center justify-center rounded-full ${
+                  filled ? "bg-primary" : "bg-surface-secondary"
+                }`}
+              >
+                <Text className={`text-[12px] font-bold ${filled ? "text-primary-foreground" : "text-muted"}`}>
+                  {index + 1}
+                </Text>
+              </View>
+              <Text className="flex-1 text-[16px] font-semibold text-foreground leading-6">
+                {question.prompt}
+              </Text>
+            </View>
             <ChipRow>
               {question.options.map((option) => {
                 const active = question.multiple
@@ -138,7 +193,7 @@ export default function RemedyScreen() {
           </View>
         );
       })}
-      <Text className="mt-6 mb-4 text-[12px] leading-5 text-muted">{REMEDY_DISCLAIMER}</Text>
+      <Text className="mt-7 mb-4 text-[12px] leading-5 text-muted">{REMEDY_DISCLAIMER}</Text>
     </KeyboardFormShell>
   );
 }

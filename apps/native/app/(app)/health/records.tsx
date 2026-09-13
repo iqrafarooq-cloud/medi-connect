@@ -91,6 +91,8 @@ export default function HealthRecordsScreen() {
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 24, paddingHorizontal: 16 }}
           keyboardShouldPersistTaps="handled"
           contentInsetAdjustmentBehavior="never"
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
         >
           {rows.length === 0 ? (
             <View className="flex-1 items-center justify-center px-8">
