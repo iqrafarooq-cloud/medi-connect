@@ -86,7 +86,7 @@ export async function queryExtractedLabs(
       originalFilename: clinicalDocument.originalFilename,
     })
     .from(extractedLab)
-    .innerJoin(clinicalDocument, eq(extractedLab.documentId, clinicalDocument.id))
+    .leftJoin(clinicalDocument, eq(extractedLab.documentId, clinicalDocument.id))
     .where(and(...conditions))
     .orderBy(asc(extractedLab.observedAt));
 

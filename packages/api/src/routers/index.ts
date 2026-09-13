@@ -5,6 +5,7 @@ import { adminRouter } from "./admin";
 import { clinicRouter } from "./clinic";
 import { clinicalRouter } from "./clinical";
 import { patientRouter } from "./patient";
+import { patientRecordRouter } from "./patient-record";
 import { triageRouter } from "./triage";
 
 export const appRouter = {
@@ -20,6 +21,7 @@ export const appRouter = {
   admin: adminRouter,
   clinic: clinicRouter,
   patient: patientRouter,
+  patientRecord: patientRecordRouter,
   clinical: clinicalRouter,
   triage: triageRouter,
 };

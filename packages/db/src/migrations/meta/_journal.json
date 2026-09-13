@@ -50,6 +50,13 @@
       "when": 1789274945322,
       "tag": "0006_dazzling_genesis",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789278920912,
+      "tag": "0007_mushy_betty_ross",
+      "breakpoints": true
     }
   ]
 }
