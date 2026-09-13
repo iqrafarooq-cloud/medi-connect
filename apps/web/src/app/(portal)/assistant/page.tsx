@@ -51,6 +51,7 @@ import { Label } from "@medi-connect/ui/components/label";
 import { cn } from "@medi-connect/ui/lib/utils";
 
 import { client } from "@/utils/orpc";
+import { useSpeechDictation } from "@/hooks/use-speech-dictation";
 
 type PatientRef = {
   id: string;
@@ -561,6 +562,7 @@ export default function AssistantPage() {
   const [draft, setDraft] = useState(
     "What is the eGFR trend and any documented drug allergies?",
   );
+  const [interimVoice, setInterimVoice] = useState("");
   const [strictEhr, setStrictEhr] = useState(true);
   const [activeDocId, setActiveDocId] = useState<string>("");
   const [highlightOn, setHighlightOn] = useState(false);
@@ -575,6 +577,22 @@ export default function AssistantPage() {
 
   patientIdRef.current = patient?.id ?? null;
   sessionIdRef.current = chatSessionId;
+
+  const { supported: voiceSupported, listening, toggle: toggleVoice, stop: stopVoice } =
+    useSpeechDictation({
+      lang: "en-US",
+      onFinalTranscript: (text) => {
+        setDraft((prev) => {
+          const base = prev.trim();
+          return base ? `${base} ${text}` : text;
+        });
+        setInterimVoice("");
+      },
+      onInterimTranscript: (text) => setInterimVoice(text),
+      onUnsupported: () =>
+        toast.message("Voice dictation is not supported in this browser"),
+      onError: (message) => toast.error(message),
+    });
 
   const transport = useMemo(
     () =>
@@ -707,6 +725,8 @@ export default function AssistantPage() {
   async function send(text?: string) {
     const content = (text ?? draft).trim();
     if (!content || !patient) return;
+    stopVoice();
+    setInterimVoice("");
     setDraft("");
     await sendMessage({ text: content });
   }
@@ -1090,26 +1110,64 @@ export default function AssistantPage() {
                     }}
                   />
                 </label>
-                <input
-                  className="w-full bg-transparent px-1 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-                  placeholder="Ask anything about patient history, medication interactions, or lab trends..."
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      void send();
+                <div className="relative min-w-0 flex-1">
+                  <input
+                    className="w-full bg-transparent px-1 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                    placeholder={
+                      listening
+                        ? "Listening…"
+                        : "Ask anything about patient history, medication interactions, or lab trends..."
                     }
-                  }}
-                  aria-label="Clinical query"
-                />
+                    value={
+                      interimVoice
+                        ? `${draft}${draft && !draft.endsWith(" ") ? " " : ""}${interimVoice}`
+                        : draft
+                    }
+                    onChange={(e) => {
+                      setInterimVoice("");
+                      setDraft(e.target.value);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void send();
+                      }
+                    }}
+                    aria-label="Clinical query"
+                  />
+                  {listening ? (
+                    <span className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-[10px] font-semibold tracking-wide text-destructive">
+                      REC
+                    </span>
+                  ) : null}
+                </div>
                 <button
                   type="button"
-                  className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                  title="Voice Dictation"
-                  onClick={() => toast.message("Voice input is optional / not wired")}
+                  className={cn(
+                    "rounded-lg p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                    listening
+                      ? "bg-destructive/10 text-destructive hover:bg-destructive/15"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                    !voiceSupported && "opacity-50",
+                  )}
+                  title={
+                    !voiceSupported
+                      ? "Voice dictation unavailable in this browser"
+                      : listening
+                        ? "Stop dictation"
+                        : "Start voice dictation"
+                  }
+                  aria-pressed={listening}
+                  aria-label={listening ? "Stop voice dictation" : "Start voice dictation"}
+                  onClick={() => {
+                    if (!voiceSupported) {
+                      toast.message("Voice dictation is not supported in this browser");
+                      return;
+                    }
+                    toggleVoice();
+                  }}
                 >
-                  <Mic className="size-5" />
+                  <Mic className={cn("size-5", listening && "animate-pulse")} />
                 </button>
                 <Button
                   type="button"
