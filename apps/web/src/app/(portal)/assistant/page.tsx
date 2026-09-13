@@ -71,6 +71,7 @@ import {
   PortalSpinner,
 } from "@/components/portal/portal-loading";
 import { PatientPickerDialog } from "@/components/portal/patient-picker-dialog";
+import { UploadRecordsDialog } from "@/components/portal/upload-records-dialog";
 
 import { client } from "@/utils/orpc";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -380,28 +381,29 @@ function CitationSources({
   if (citations.length === 0) return null;
 
   return (
-    <div className="mt-1 border-t border-border/70 pt-2">
-      <div className="mb-1.5 text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+    <div className="mt-1.5 border-t border-border/70 pt-1.5">
+      <div className="mb-1 text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
         Sources
       </div>
-      <ol className="flex flex-col gap-0.5">
+      <ol className="flex flex-col">
         {citations.map((c) => (
           <li key={`${c.index}-${c.documentId}-${c.page}`}>
             <button
               type="button"
               onClick={() => onOpen(c)}
-              className="group flex w-full items-start gap-2 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+              className="group flex w-full items-center gap-2 rounded-md px-1.5 py-0.5 text-left transition-colors hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
             >
-              <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded bg-primary/12 text-[10px] font-semibold tabular-nums text-primary">
+              <span className="flex size-4 shrink-0 items-center justify-center rounded bg-primary/12 text-[10px] font-semibold tabular-nums text-primary">
                 {c.index}
               </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[12px] font-medium text-foreground group-hover:text-primary">
-                  {shortDocLabel(c.filename)}
+              <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-foreground group-hover:text-primary">
+                {shortDocLabel(c.filename)}
+                <span className="font-normal text-muted-foreground">
+                  {" "}
+                  · p. {c.page}
                 </span>
-                <span className="text-[11px] text-muted-foreground">p. {c.page}</span>
               </span>
-              <ExternalLink className="mt-0.5 size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+              <ExternalLink className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
             </button>
           </li>
         ))}
@@ -575,6 +577,7 @@ function DocumentSurface({
 
 export default function AssistantPage() {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [loadingPatient, setLoadingPatient] = useState(false);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -753,25 +756,6 @@ export default function AssistantPage() {
     await sendMessage({ text: content });
   }
 
-  async function onUpload(file: File) {
-    if (!patient) return;
-    const form = new FormData();
-    form.set("file", file);
-    form.set("patientId", patient.id);
-    form.set(
-      "category",
-      file.name.toLowerCase().endsWith(".csv") ? "home_monitoring" : "report",
-    );
-    const res = await fetch("/api/uploads/patient-file", { method: "POST", body: form });
-    const json = (await res.json()) as { error?: string };
-    if (!res.ok) {
-      toast.error(json.error ?? "Upload failed");
-      return;
-    }
-    toast.success("Upload queued for ingestion");
-    await refreshPatient(patient.id);
-  }
-
   function findInsertApproval(message: UIMessage) {
     for (const part of message.parts) {
       if (part.type === "tool-insertIntoNote") {
@@ -872,20 +856,15 @@ export default function AssistantPage() {
                 {patient ? "Switch patient" : "Select patient"}
               </Button>
               {patient ? (
-                <label className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90">
+                <Button
+                  size="sm"
+                  type="button"
+                  className="gap-1.5"
+                  onClick={() => setUploadOpen(true)}
+                >
                   <Upload className="size-4" />
-                  Upload record
-                  <input
-                    type="file"
-                    accept=".pdf,.csv,application/pdf,text/csv"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) void onUpload(f);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
+                  Upload records
+                </Button>
               ) : null}
             </div>
           </div>
@@ -959,10 +938,10 @@ export default function AssistantPage() {
               ))}
             </div>
 
-            <MessageScrollerProvider>
+            <MessageScrollerProvider defaultScrollPosition="end" autoScroll>
               <MessageScroller className="mt-2 min-h-0 flex-1">
                 <MessageScrollerViewport>
-                  <MessageScrollerContent className="gap-4 py-2">
+                  <MessageScrollerContent className="gap-3 py-3">
                     {messages.length === 0 ? (
                       <MessageScrollerItem>
                         <Bubble variant="muted">
@@ -975,17 +954,14 @@ export default function AssistantPage() {
                       </MessageScrollerItem>
                     ) : null}
 
-                    {messages.map((m, index) => {
+                    {messages.map((m) => {
                       if (m.role === "user") {
                         const text = m.parts
                           .filter((p) => p.type === "text")
                           .map((p) => ("text" in p ? p.text : ""))
                           .join("");
                         return (
-                          <MessageScrollerItem
-                            key={m.id}
-                            scrollAnchor={index === messages.length - 1 && !busy}
-                          >
+                          <MessageScrollerItem key={m.id}>
                             <Message align="end">
                               <MessageAvatar className="size-9">
                                 <Avatar className="size-9">
@@ -1021,10 +997,7 @@ export default function AssistantPage() {
                       const approval = findInsertApproval(m);
 
                       return (
-                        <MessageScrollerItem
-                          key={m.id}
-                          scrollAnchor={index === messages.length - 1 && !busy}
-                        >
+                        <MessageScrollerItem key={m.id}>
                           <Message align="start">
                             <MessageAvatar className="size-9 bg-muted">
                               <Bot className="size-5 text-primary" aria-hidden />
@@ -1128,7 +1101,7 @@ export default function AssistantPage() {
                     })}
 
                     {busy ? (
-                      <MessageScrollerItem scrollAnchor>
+                      <MessageScrollerItem>
                         <PortalInlineLoading
                           label="Retrieving grounded sources…"
                           className="text-xs"
@@ -1151,25 +1124,20 @@ export default function AssistantPage() {
                 <span>{docsSynced} indexed docs</span>
               </div>
               <div className="flex items-center gap-1.5 rounded-xl bg-background p-1.5 ring-1 ring-border">
-                <label
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
                   className={cn(
-                    "shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground",
+                    "shrink-0 text-muted-foreground hover:bg-secondary hover:text-foreground",
                     !patient && "pointer-events-none opacity-40",
                   )}
+                  disabled={!patient}
+                  aria-label="Upload records"
+                  onClick={() => setUploadOpen(true)}
                 >
                   <Paperclip className="size-5" />
-                  <input
-                    type="file"
-                    accept=".pdf,.csv,application/pdf,text/csv"
-                    className="hidden"
-                    disabled={!patient}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) void onUpload(f);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
+                </Button>
                 <Input
                   className="h-10 flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0"
                   disabled={!patient}
@@ -1423,6 +1391,15 @@ export default function AssistantPage() {
         onSelect={selectPatient}
         activeId={patient?.id}
       />
+
+      {patient ? (
+        <UploadRecordsDialog
+          open={uploadOpen}
+          onOpenChange={setUploadOpen}
+          patientId={patient.id}
+          onDocumentsChanged={() => refreshPatient(patient.id)}
+        />
+      ) : null}
     </div>
   );
 }
