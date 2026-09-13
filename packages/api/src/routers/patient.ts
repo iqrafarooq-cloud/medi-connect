@@ -2,7 +2,7 @@ import { auth } from "@medi-connect/auth";
 import { createDb } from "@medi-connect/db";
 import { user } from "@medi-connect/db/schema/auth";
 import { patient, patientFile } from "@medi-connect/db/schema/patient";
-import { desc, eq, ilike } from "drizzle-orm";
+import { count, desc, eq, ilike, or, type SQL } from "drizzle-orm";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
@@ -148,11 +148,83 @@ export const patientRouter = {
       if (cnic) {
         return db.select().from(patient).where(eq(patient.cnic, cnic)).limit(20);
       }
+      const digits = q.replace(/\D/g, "");
+      if (digits.length >= 3) {
+        return db
+          .select()
+          .from(patient)
+          .where(or(ilike(patient.fullName, `%${q}%`), ilike(patient.cnic, `%${digits}%`)))
+          .limit(20);
+      }
       return db
         .select()
         .from(patient)
         .where(ilike(patient.fullName, `%${q}%`))
         .limit(20);
+    }),
+
+  list: protectedProcedure
+    .input(
+      z
+        .object({
+          query: z.string().max(100).optional(),
+          page: z.number().int().min(1).default(1),
+          pageSize: z.number().int().min(5).max(50).default(10),
+        })
+        .optional(),
+    )
+    .handler(async ({ context, input }) => {
+      await requireActiveClinic(context.session.user.id);
+      const db = createDb();
+      const page = input?.page ?? 1;
+      const pageSize = input?.pageSize ?? 10;
+      const offset = (page - 1) * pageSize;
+      const q = input?.query?.trim() ?? "";
+
+      let whereClause: SQL | undefined;
+      if (q) {
+        const cnic = normalizeCnic(q);
+        const digits = q.replace(/\D/g, "");
+        if (cnic) {
+          whereClause = eq(patient.cnic, cnic);
+        } else if (digits.length >= 3) {
+          // Partial CNIC / digit query — avoid bare "%%" which matches every row
+          whereClause = or(
+            ilike(patient.fullName, `%${q}%`),
+            ilike(patient.cnic, `%${digits}%`),
+          );
+        } else {
+          whereClause = ilike(patient.fullName, `%${q}%`);
+        }
+      }
+
+      const countRows = await db.select({ value: count() }).from(patient).where(whereClause);
+      const total = Number(countRows[0]?.value ?? 0);
+
+      const items = await db
+        .select({
+          id: patient.id,
+          cnic: patient.cnic,
+          fullName: patient.fullName,
+          phone: patient.phone,
+          gender: patient.gender,
+          dateOfBirth: patient.dateOfBirth,
+          bloodType: patient.bloodType,
+          createdAt: patient.createdAt,
+        })
+        .from(patient)
+        .where(whereClause)
+        .orderBy(desc(patient.createdAt))
+        .limit(pageSize)
+        .offset(offset);
+
+      return {
+        items,
+        total,
+        page,
+        pageSize,
+        pageCount: Math.max(1, Math.ceil(total / pageSize)),
+      };
     }),
 
   get: protectedProcedure

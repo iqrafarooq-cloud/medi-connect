@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@medi-connect/ui/components/button";
+import { Card, CardContent } from "@medi-connect/ui/components/card";
 import { Input } from "@medi-connect/ui/components/input";
 import { Label } from "@medi-connect/ui/components/label";
 import {
@@ -25,6 +26,8 @@ import {
   SheetTitle,
 } from "@medi-connect/ui/components/sheet";
 import { cn } from "@medi-connect/ui/lib/utils";
+
+import { PortalButtonSpinner, PortalSpinner } from "@/components/portal/portal-loading";
 
 import { client } from "@/utils/orpc";
 
@@ -119,7 +122,7 @@ const BAY_DOT: Record<BayStatus, string> = {
   reserved: "bg-destructive",
   available: "bg-primary",
   turnover: "bg-amber-500",
-  in_care: "bg-teal-700",
+  in_care: "bg-chart-2",
 };
 
 const emptyCaseForm = {
@@ -516,11 +519,7 @@ export default function EmergencyTriagePage() {
   }
 
   if (loading && !board) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
-        Loading triage board…
-      </div>
-    );
+    return <PortalSpinner label="Loading triage board…" />;
   }
 
   const doneCount = prepItems.filter((i) => i.done).length;
@@ -620,38 +619,65 @@ export default function EmergencyTriagePage() {
       </section>
 
       <div className="flex flex-col gap-5 px-3 py-4 sm:px-4 sm:py-5 lg:px-5">
-        <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <h2 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">
-                Pre-Arrival Command
-              </h2>
-            </div>
+            <h2 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">
+              Pre-Arrival Command
+            </h2>
             <p className="text-sm text-muted-foreground">
               Clinic intake queue and bay readiness
             </p>
           </div>
+          <Button size="sm" className="h-9 shrink-0 gap-1.5" onClick={openCreateCase}>
+            <Plus className="size-3.5" />
+            New case
+          </Button>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-            <span className="inline-flex items-center gap-2">
-              <Users className="size-3.5 text-muted-foreground" />
-              <span className="text-muted-foreground">Inbound</span>
-              <span className="font-heading font-semibold tabular-nums">
-                {board?.kpis.inboundCount ?? 0}
-              </span>
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <Activity className="size-3.5 text-primary" />
-              <span className="text-muted-foreground">Bays open</span>
-              <span className="font-heading font-semibold tabular-nums">
-                {board?.kpis.baysOpen ?? 0} / {board?.kpis.baysTotal ?? 0}
-              </span>
-            </span>
-            <Button size="sm" className="h-9 gap-1.5" onClick={openCreateCase}>
-              <Plus className="size-3.5" />
-              New case
-            </Button>
-          </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <Card className="border-border shadow-sm">
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
+                <Users className="size-5" aria-hidden />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Inbound cases</p>
+                <p className="font-heading text-2xl font-semibold tabular-nums tracking-tight">
+                  {board?.kpis.inboundCount ?? 0}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border shadow-sm">
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Activity className="size-5" aria-hidden />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Bays available</p>
+                <p className="font-heading text-2xl font-semibold tabular-nums tracking-tight">
+                  {board?.kpis.baysOpen ?? 0}
+                  <span className="text-base font-medium text-muted-foreground">
+                    {" "}
+                    / {board?.kpis.baysTotal ?? 0}
+                  </span>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border shadow-sm sm:col-span-2 xl:col-span-1">
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-chart-3/10 text-chart-3">
+                <Clock3 className="size-5" aria-hidden />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Queue focus</p>
+                <p className="text-sm font-medium leading-snug text-foreground">
+                  {selected?.fullName ?? "Select a case to review prep and vitals"}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="grid gap-5 xl:grid-cols-2">
@@ -1131,8 +1157,9 @@ export default function EmergencyTriagePage() {
             <Button variant="outline" onClick={() => setCaseSheetOpen(false)}>
               Cancel
             </Button>
-            <Button disabled={busy} onClick={() => void saveCase()}>
-              {editingCaseId ? "Save changes" : "Create case"}
+            <Button disabled={busy} className="gap-2" onClick={() => void saveCase()}>
+              {busy ? <PortalButtonSpinner /> : null}
+              {busy ? "Saving…" : editingCaseId ? "Save changes" : "Create case"}
             </Button>
           </SheetFooter>
         </SheetContent>
@@ -1192,8 +1219,9 @@ export default function EmergencyTriagePage() {
             <Button variant="outline" onClick={() => setBaySheetOpen(false)}>
               Cancel
             </Button>
-            <Button disabled={busy} onClick={() => void saveBay()}>
-              Save
+            <Button disabled={busy} className="gap-2" onClick={() => void saveBay()}>
+              {busy ? <PortalButtonSpinner /> : null}
+              {busy ? "Saving…" : "Save"}
             </Button>
           </SheetFooter>
         </SheetContent>
@@ -1227,8 +1255,9 @@ export default function EmergencyTriagePage() {
             <Button variant="outline" onClick={() => setLeadSheetOpen(false)}>
               Cancel
             </Button>
-            <Button disabled={busy} onClick={() => void saveLead()}>
-              Add lead
+            <Button disabled={busy} className="gap-2" onClick={() => void saveLead()}>
+              {busy ? <PortalButtonSpinner /> : null}
+              {busy ? "Saving…" : "Add lead"}
             </Button>
           </SheetFooter>
         </SheetContent>

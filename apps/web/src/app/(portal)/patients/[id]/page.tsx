@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Activity,
@@ -9,21 +9,38 @@ import {
   Download,
   FileText,
   Filter,
-  HeartPulse,
   Link2,
+  Pencil,
   Plus,
   Search,
   ShieldCheck,
   Stethoscope,
+  Trash2,
 } from "lucide-react";
 
 import { Badge } from "@medi-connect/ui/components/badge";
 import { Button } from "@medi-connect/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@medi-connect/ui/components/card";
+import { DateTimePicker } from "@medi-connect/ui/components/date-picker";
 import { Input } from "@medi-connect/ui/components/input";
+import { Label } from "@medi-connect/ui/components/label";
 import { Progress } from "@medi-connect/ui/components/progress";
 import { Separator } from "@medi-connect/ui/components/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@medi-connect/ui/components/sheet";
+import { Textarea } from "@medi-connect/ui/components/textarea";
 import { cn } from "@medi-connect/ui/lib/utils";
+
+import {
+  PortalButtonSpinner,
+  PortalPatientRecordSkeleton,
+} from "@/components/portal/portal-loading";
 
 import { client } from "@/utils/orpc";
 
@@ -40,102 +57,91 @@ type Patient = {
 };
 
 type EncounterKind = "all" | "emergency" | "cardio" | "ambulatory" | "labs";
+type EncounterKindValue = Exclude<EncounterKind, "all">;
+
+type EncounterBadge = { label: string; tone: "critical" | "stable" | "info" };
+type EncounterMetric = { label: string; value: string; alert?: boolean };
 
 type Encounter = {
   id: string;
-  kind: Exclude<EncounterKind, "all">;
-  year: number;
-  dateLabel: string;
+  kind: EncounterKindValue;
+  occurredAt: string | Date;
   title: string;
   facility: string;
-  badge?: { label: string; tone: "critical" | "stable" | "info" };
   summary: string;
-  metrics?: { label: string; value: string; alert?: boolean }[];
-  links?: string[];
-  inbound?: boolean;
+  badge: EncounterBadge | null;
+  metrics: EncounterMetric[] | null;
+  links: string[] | null;
+  inbound: boolean;
 };
 
-const ENCOUNTERS: Encounter[] = [
-  {
-    id: "e1",
-    kind: "emergency",
-    year: 2026,
-    dateLabel: "12 Sep 2026 · 14:12 PKT",
-    title: "Acute retrosternal chest pain · Pre-arrival ACS triage",
-    facility: "Rescue 1122 → City Hospital Lahore",
-    badge: { label: "ETA 4 MINS", tone: "critical" },
-    summary:
-      "Paramedic notes ST elevation concern in anterior leads. ASA 300 mg given en route. Notify cath team on arrival.",
-    metrics: [
-      { label: "BP", value: "148/92", alert: true },
-      { label: "Pulse", value: "104 bpm", alert: true },
-      { label: "SpO₂", value: "95%" },
-      { label: "Bay", value: "Trauma 1 primed" },
-    ],
-    links: ["Live 12-lead ECG stream", "EMS run sheet"],
-    inbound: true,
-  },
-  {
-    id: "e2",
-    kind: "cardio",
-    year: 2025,
-    dateLabel: "03 Mar 2025",
-    title: "Outpatient cardiology follow-up",
-    facility: "Punjab Institute of Cardiology",
-    badge: { label: "Stable", tone: "stable" },
-    summary:
-      "Review of lipids and antiplatelet regimen. Exercise tolerance improved. Continue atorvastatin 20 mg.",
-    metrics: [
-      { label: "BP", value: "128/78" },
-      { label: "LDL", value: "98 mg/dL" },
-      { label: "eGFR", value: "82" },
-    ],
-    links: ["Clinic summary PDF"],
-  },
-  {
-    id: "e3",
-    kind: "labs",
-    year: 2024,
-    dateLabel: "18 Nov 2024",
-    title: "Comprehensive metabolic + cardiac panel",
-    facility: "Chughtai Lab · Gulberg",
-    badge: { label: "Labs", tone: "info" },
-    summary: "Troponin negative at rest. Mild eGFR decline vs prior year. HbA1c within target.",
-    metrics: [
-      { label: "hs-cTnI", value: "0.02" },
-      { label: "Creat", value: "1.1" },
-      { label: "HbA1c", value: "5.8%" },
-    ],
-    links: ["Lab panel PDF"],
-  },
-  {
-    id: "e4",
-    kind: "ambulatory",
-    year: 2021,
-    dateLabel: "22 Jun 2021",
-    title: "Allergy & immunology consult",
-    facility: "Aga Khan University Hospital",
-    badge: { label: "Ambulatory", tone: "info" },
-    summary:
-      "Confirmed mild iodinated contrast sensitivity. Pre-medication protocol documented for future imaging.",
-    links: ["Consult note"],
-  },
-  {
-    id: "e5",
-    kind: "cardio",
-    year: 2018,
-    dateLabel: "09 Feb 2018",
-    title: "Inpatient cath lab · LAD stent",
-    facility: "National Institute of Cardiovascular Diseases",
-    badge: { label: "Procedure", tone: "info" },
-    summary: "Primary PCI to proximal LAD with drug-eluting stent. Dual antiplatelet initiated.",
-    metrics: [
-      { label: "Vessel", value: "pLAD" },
-      { label: "Stent", value: "DES ×1" },
-    ],
-    links: ["Cath report", "Discharge summary"],
-  },
-];
+type ClinicalFlag = {
+  id: string;
+  label: string;
+  tone: string;
+  sortOrder: number;
+  active: boolean;
+};
+
+type Consent = {
+  id: string;
+  emergencyOverride: boolean;
+  telemetrySharing: boolean;
+  researchOptIn: boolean;
+};
+
+type LabPoint = {
+  id: string;
+  testName: string;
+  value: number;
+  unit: string | null;
+  flag: string | null;
+  observedAt: string | Date;
+  entrySource: "document" | "manual";
+  documentId: string | null;
+};
+
+type LabSeries = {
+  testName: string;
+  unit: string | null;
+  latest: LabPoint;
+  points: number[];
+  history: LabPoint[];
+};
+
+type AuditRow = {
+  id: string;
+  actorName: string | null;
+  action: string;
+  createdAt: string | Date;
+  detail: Record<string, unknown> | null;
+};
+
+type EncounterForm = {
+  kind: EncounterKindValue;
+  occurredAt: string;
+  title: string;
+  facility: string;
+  summary: string;
+  badgeLabel: string;
+  badgeTone: EncounterBadge["tone"];
+  inbound: boolean;
+  metricsText: string;
+  linksText: string;
+};
+
+type FlagForm = {
+  label: string;
+  tone: "critical" | "warning" | "info";
+};
+
+type LabForm = {
+  testName: string;
+  value: string;
+  unit: string;
+  flag: string;
+  observedAt: string;
+};
 
 const FILTER_TABS: { id: EncounterKind; label: string }[] = [
   { id: "all", label: "All" },
@@ -145,7 +151,27 @@ const FILTER_TABS: { id: EncounterKind; label: string }[] = [
   { id: "labs", label: "Labs" },
 ];
 
-const YEARS = [2026, 2025, 2024, 2021, 2018] as const;
+const EMPTY_ENCOUNTER: EncounterForm = {
+  kind: "ambulatory",
+  occurredAt: "",
+  title: "",
+  facility: "",
+  summary: "",
+  badgeLabel: "",
+  badgeTone: "info",
+  inbound: false,
+  metricsText: "",
+  linksText: "",
+};
+
+const EMPTY_FLAG: FlagForm = { label: "", tone: "info" };
+const EMPTY_LAB: LabForm = {
+  testName: "",
+  value: "",
+  unit: "",
+  flag: "",
+  observedAt: "",
+};
 
 function formatCnic(cnic: string) {
   const d = cnic.replace(/\D/g, "");
@@ -178,6 +204,67 @@ function initials(name: string) {
     .join("");
 }
 
+function toDatetimeLocalValue(value?: string | Date | null) {
+  const d = value ? new Date(value) : new Date();
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatEncounterDate(value: string | Date) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("en-PK", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatAuditAction(action: string) {
+  return action.replace(/^patient\./, "").replace(/\./g, " · ");
+}
+
+function parseMetrics(text: string): EncounterMetric[] | null {
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return null;
+  return lines.map((line) => {
+    const [label, ...rest] = line.split(":");
+    const valuePart = rest.join(":").trim();
+    const alert = valuePart.endsWith("!");
+    return {
+      label: (label ?? "Metric").trim() || "Metric",
+      value: alert ? valuePart.slice(0, -1).trim() : valuePart || "—",
+      ...(alert ? { alert: true } : {}),
+    };
+  });
+}
+
+function metricsToText(metrics: EncounterMetric[] | null | undefined) {
+  if (!metrics?.length) return "";
+  return metrics.map((m) => `${m.label}: ${m.value}${m.alert ? "!" : ""}`).join("\n");
+}
+
+function parseLinks(text: string): string[] | null {
+  const links = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  return links.length ? links : null;
+}
+
+function findSeries(series: LabSeries[], matchers: string[]) {
+  return series.find((s) => {
+    const name = s.testName.toLowerCase();
+    return matchers.some((m) => name.includes(m));
+  });
+}
+
 function Sparkline({
   points,
   stroke = "currentColor",
@@ -189,6 +276,9 @@ function Sparkline({
   fill?: string;
   className?: string;
 }) {
+  if (points.length < 2) {
+    return <div className={cn("h-10 w-full rounded bg-muted/40", className)} aria-hidden />;
+  }
   const min = Math.min(...points);
   const max = Math.max(...points);
   const range = max - min || 1;
@@ -217,6 +307,7 @@ function ConsentToggle({
   onChange,
   activeLabel,
   inactiveLabel,
+  disabled,
 }: {
   label: string;
   description: string;
@@ -224,6 +315,7 @@ function ConsentToggle({
   onChange: (next: boolean) => void;
   activeLabel: string;
   inactiveLabel: string;
+  disabled?: boolean;
 }) {
   return (
     <div className="flex items-start justify-between gap-3 py-2">
@@ -235,9 +327,10 @@ function ConsentToggle({
         type="button"
         role="switch"
         aria-checked={active}
+        disabled={disabled}
         onClick={() => onChange(!active)}
         className={cn(
-          "shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+          "shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-60",
           active
             ? "bg-primary text-primary-foreground"
             : "bg-muted text-muted-foreground hover:bg-muted/80",
@@ -249,43 +342,94 @@ function ConsentToggle({
   );
 }
 
+function flagBadgeClass(tone: string) {
+  if (tone === "critical") return "gap-1 px-2 py-0.5";
+  if (tone === "warning")
+    return "border-transparent bg-chart-2/15 px-2 py-0.5 text-chart-2 hover:bg-chart-2/20";
+  return "px-2 py-0.5";
+}
+
 export default function PatientRecordPage() {
   const params = useParams<{ id: string }>();
+  const patientId = params.id;
+
   const [patient, setPatient] = useState<Patient | null>(null);
+  const [encounters, setEncounters] = useState<Encounter[]>([]);
+  const [flags, setFlags] = useState<ClinicalFlag[]>([]);
+  const [consent, setConsent] = useState<Consent | null>(null);
+  const [labSeries, setLabSeries] = useState<LabSeries[]>([]);
+  const [labs, setLabs] = useState<LabPoint[]>([]);
+  const [facilities, setFacilities] = useState<string[]>([]);
+  const [audit, setAudit] = useState<AuditRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
   const [kind, setKind] = useState<EncounterKind>("all");
   const [year, setYear] = useState<number | "all">("all");
   const [query, setQuery] = useState("");
-  const [consent, setConsent] = useState({
-    emergency: true,
-    telemetry: true,
-    research: false,
-  });
+
+  const [encounterOpen, setEncounterOpen] = useState(false);
+  const [editingEncounterId, setEditingEncounterId] = useState<string | null>(null);
+  const [encounterForm, setEncounterForm] = useState<EncounterForm>(EMPTY_ENCOUNTER);
+
+  const [flagOpen, setFlagOpen] = useState(false);
+  const [editingFlagId, setEditingFlagId] = useState<string | null>(null);
+  const [flagForm, setFlagForm] = useState<FlagForm>(EMPTY_FLAG);
+
+  const [labOpen, setLabOpen] = useState(false);
+  const [editingLabId, setEditingLabId] = useState<string | null>(null);
+  const [labForm, setLabForm] = useState<LabForm>(EMPTY_LAB);
+
+  const refresh = useCallback(async () => {
+    const data = await client.patientRecord.get({ patientId });
+    setPatient(data.patient as Patient);
+    setEncounters(data.encounters as Encounter[]);
+    setFlags(data.flags as ClinicalFlag[]);
+    setConsent(data.consent as Consent);
+    setLabSeries(data.labSeries as LabSeries[]);
+    setLabs(data.labs as LabPoint[]);
+    setFacilities(data.facilities);
+    setAudit(data.audit as AuditRow[]);
+  }, [patientId]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setLoading(true);
       try {
-        const row = await client.patient.get({ id: params.id });
-        if (!cancelled) setPatient(row as Patient);
+        await refresh();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Could not load patient");
+        if (!cancelled) {
+          toast.error(error instanceof Error ? error.message : "Could not load patient record");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [params.id]);
+  }, [refresh]);
+
+  const years = useMemo(() => {
+    const set = new Set<number>();
+    for (const e of encounters) {
+      const y = new Date(e.occurredAt).getFullYear();
+      if (!Number.isNaN(y)) set.add(y);
+    }
+    return [...set].sort((a, b) => b - a);
+  }, [encounters]);
 
   const q = query.trim().toLowerCase();
-  const filtered = ENCOUNTERS.filter((e) => {
+  const filtered = encounters.filter((e) => {
     if (kind !== "all" && e.kind !== kind) return false;
-    if (year !== "all" && e.year !== year) return false;
+    if (year !== "all" && new Date(e.occurredAt).getFullYear() !== year) return false;
     if (!q) return true;
     return (
       e.title.toLowerCase().includes(q) ||
       e.facility.toLowerCase().includes(q) ||
       e.summary.toLowerCase().includes(q) ||
-      e.dateLabel.toLowerCase().includes(q)
+      formatEncounterDate(e.occurredAt).toLowerCase().includes(q)
     );
   });
 
@@ -296,13 +440,267 @@ export default function PatientRecordPage() {
   }
 
   const filtersActive = kind !== "all" || year !== "all" || query.trim().length > 0;
-
   const age = patient ? ageFromDob(patient.dateOfBirth) : null;
-  const name = patient?.fullName ?? "Loading patient…";
+  const name = patient?.fullName ?? "Patient";
+
+  const troponin = findSeries(labSeries, ["troponin", "hs-ctni", "ctni"]);
+  const egfr = findSeries(labSeries, ["egfr", "gfr"]);
+  const lipidKeys = [
+    ["total chol", ["total chol", "cholesterol"]],
+    ["LDL-C", ["ldl"]],
+    ["HDL-C", ["hdl"]],
+    ["Trig", ["trig"]],
+  ] as const;
+  const lipidValues = lipidKeys.map(([label, matchers]) => {
+    const s = findSeries(labSeries, [...matchers]);
+    return [label, s ? String(s.latest.value) : "—"] as const;
+  });
+  const hba1c = findSeries(labSeries, ["hba1c", "a1c"]);
+
+  function openCreateEncounter() {
+    setEditingEncounterId(null);
+    setEncounterForm({
+      ...EMPTY_ENCOUNTER,
+      occurredAt: toDatetimeLocalValue(new Date()),
+      facility: facilities[0] ?? "",
+    });
+    setEncounterOpen(true);
+  }
+
+  function openEditEncounter(enc: Encounter) {
+    setEditingEncounterId(enc.id);
+    setEncounterForm({
+      kind: enc.kind,
+      occurredAt: toDatetimeLocalValue(enc.occurredAt),
+      title: enc.title,
+      facility: enc.facility,
+      summary: enc.summary,
+      badgeLabel: enc.badge?.label ?? "",
+      badgeTone: enc.badge?.tone ?? "info",
+      inbound: enc.inbound,
+      metricsText: metricsToText(enc.metrics),
+      linksText: (enc.links ?? []).join("\n"),
+    });
+    setEncounterOpen(true);
+  }
+
+  async function saveEncounter() {
+    if (!encounterForm.title.trim() || !encounterForm.facility.trim() || !encounterForm.occurredAt) {
+      toast.error("Title, facility, and date are required");
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        patientId,
+        kind: encounterForm.kind,
+        occurredAt: new Date(encounterForm.occurredAt).toISOString(),
+        title: encounterForm.title.trim(),
+        facility: encounterForm.facility.trim(),
+        summary: encounterForm.summary.trim(),
+        inbound: encounterForm.inbound,
+        badge: encounterForm.badgeLabel.trim()
+          ? { label: encounterForm.badgeLabel.trim(), tone: encounterForm.badgeTone }
+          : null,
+        metrics: parseMetrics(encounterForm.metricsText),
+        links: parseLinks(encounterForm.linksText),
+      };
+      if (editingEncounterId) {
+        await client.patientRecord.updateEncounter({ id: editingEncounterId, ...payload });
+        toast.success("Encounter updated");
+      } else {
+        await client.patientRecord.createEncounter(payload);
+        toast.success("Encounter added");
+      }
+      setEncounterOpen(false);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save encounter");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteEncounter(id: string) {
+    if (!confirm("Delete this encounter?")) return;
+    try {
+      await client.patientRecord.deleteEncounter({ id, patientId });
+      toast.success("Encounter deleted");
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete encounter");
+    }
+  }
+
+  function openCreateFlag() {
+    setEditingFlagId(null);
+    setFlagForm(EMPTY_FLAG);
+    setFlagOpen(true);
+  }
+
+  function openEditFlag(flag: ClinicalFlag) {
+    setEditingFlagId(flag.id);
+    setFlagForm({
+      label: flag.label,
+      tone: flag.tone === "critical" || flag.tone === "warning" ? flag.tone : "info",
+    });
+    setFlagOpen(true);
+  }
+
+  async function saveFlag() {
+    if (!flagForm.label.trim()) {
+      toast.error("Flag label is required");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (editingFlagId) {
+        await client.patientRecord.updateFlag({
+          id: editingFlagId,
+          patientId,
+          label: flagForm.label.trim(),
+          tone: flagForm.tone,
+        });
+        toast.success("Flag updated");
+      } else {
+        await client.patientRecord.createFlag({
+          patientId,
+          label: flagForm.label.trim(),
+          tone: flagForm.tone,
+          sortOrder: flags.length,
+        });
+        toast.success("Flag added");
+      }
+      setFlagOpen(false);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save flag");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteFlag(id: string) {
+    if (!confirm("Remove this clinical flag?")) return;
+    try {
+      await client.patientRecord.deleteFlag({ id, patientId });
+      toast.success("Flag removed");
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not remove flag");
+    }
+  }
+
+  function openCreateLab() {
+    setEditingLabId(null);
+    setLabForm({ ...EMPTY_LAB, observedAt: toDatetimeLocalValue(new Date()) });
+    setLabOpen(true);
+  }
+
+  function openEditLab(lab: LabPoint) {
+    if (lab.entrySource !== "manual") {
+      toast.error("Document-extracted labs are read-only");
+      return;
+    }
+    setEditingLabId(lab.id);
+    setLabForm({
+      testName: lab.testName,
+      value: String(lab.value),
+      unit: lab.unit ?? "",
+      flag: lab.flag ?? "",
+      observedAt: toDatetimeLocalValue(lab.observedAt),
+    });
+    setLabOpen(true);
+  }
+
+  async function saveLab() {
+    const value = Number(labForm.value);
+    if (!labForm.testName.trim() || !labForm.observedAt || Number.isNaN(value)) {
+      toast.error("Test name, numeric value, and date are required");
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        patientId,
+        testName: labForm.testName.trim(),
+        value,
+        unit: labForm.unit.trim() || null,
+        flag: labForm.flag.trim() || null,
+        observedAt: new Date(labForm.observedAt).toISOString(),
+      };
+      if (editingLabId) {
+        await client.patientRecord.updateLab({ id: editingLabId, ...payload });
+        toast.success("Lab reading updated");
+      } else {
+        await client.patientRecord.createLab(payload);
+        toast.success("Lab reading added");
+      }
+      setLabOpen(false);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save lab");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteLab(id: string) {
+    if (!confirm("Delete this manual lab reading?")) return;
+    try {
+      await client.patientRecord.deleteLab({ id, patientId });
+      toast.success("Lab deleted");
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete lab");
+    }
+  }
+
+  async function updateConsentField(
+    field: "emergencyOverride" | "telemetrySharing" | "researchOptIn",
+    value: boolean,
+  ) {
+    if (!consent) return;
+    const previous = consent;
+    setConsent({ ...consent, [field]: value });
+    try {
+      const updated = await client.patientRecord.updateConsent({
+        patientId,
+        [field]: value,
+      });
+      setConsent(updated as Consent);
+      const latestAudit = await client.patientRecord.listAudit({ patientId, limit: 12 });
+      setAudit(latestAudit as AuditRow[]);
+    } catch (error) {
+      setConsent(previous);
+      toast.error(error instanceof Error ? error.message : "Could not update consent");
+    }
+  }
+
+  async function exportRecord() {
+    try {
+      const data = await client.patientRecord.exportRecord({ patientId });
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `patient-${patient?.cnic ?? patientId}-record.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Record exported");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Export failed");
+    }
+  }
+
+  const manualLabs = labs.filter((l) => l.entrySource === "manual");
+
+  if (loading && !patient) {
+    return <PortalPatientRecordSkeleton />;
+  }
 
   return (
     <div className="flex w-full max-w-none flex-col gap-3 animate-in fade-in duration-500 lg:gap-3.5">
-      {/* Header */}
       <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
         <div className="relative px-4 pb-3.5 pt-4 sm:px-5 sm:pt-5">
           <div
@@ -348,7 +746,7 @@ export default function PatientRecordPage() {
             </div>
 
             <div className="flex flex-wrap gap-2 lg:justify-end">
-              <Button variant="outline" size="sm" type="button">
+              <Button variant="outline" size="sm" type="button" onClick={() => void exportRecord()}>
                 <Download className="size-4" />
                 Export record
               </Button>
@@ -367,49 +765,90 @@ export default function PatientRecordPage() {
                 <Filter className="size-4" />
                 {filtersActive ? "Clear filters" : "Filter timeline"}
               </Button>
-              <Button size="sm" type="button">
+              <Button size="sm" type="button" onClick={openCreateEncounter}>
                 <Plus className="size-4" />
                 Add clinical encounter
               </Button>
             </div>
           </div>
 
-          {/* Clinical flags */}
-          <div className="relative mt-3 flex flex-wrap gap-1.5 rounded-lg bg-secondary/70 px-2.5 py-2">
-            <Badge variant="destructive" className="gap-1 px-2 py-0.5">
-              <AlertTriangle className="size-3" />
-              LAD stent (2018)
-            </Badge>
-            <Badge className="border-transparent bg-chart-2/15 px-2 py-0.5 text-chart-2 hover:bg-chart-2/20">
-              Mild contrast allergy · pre-medicate
-            </Badge>
-            <Badge variant="secondary" className="px-2 py-0.5">
-              Essential HTN
-            </Badge>
-            <Badge variant="secondary" className="px-2 py-0.5">
-              NKDA (except radiocontrast)
-            </Badge>
+          <div className="relative mt-3 space-y-2 rounded-lg bg-secondary/70 px-2.5 py-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Clinical flags
+              </p>
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" type="button" onClick={openCreateFlag}>
+                <Plus className="size-3.5" />
+                Add flag
+              </Button>
+            </div>
+            {flags.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No clinical flags on file.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {flags.map((flag) => (
+                  <button
+                    key={flag.id}
+                    type="button"
+                    className="group inline-flex items-center gap-1"
+                    onClick={() => openEditFlag(flag)}
+                    title="Edit flag"
+                  >
+                    <Badge
+                      variant={flag.tone === "critical" ? "destructive" : "secondary"}
+                      className={flagBadgeClass(flag.tone)}
+                    >
+                      {flag.tone === "critical" ? <AlertTriangle className="size-3" /> : null}
+                      {flag.label}
+                    </Badge>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-destructive group-hover:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void deleteFlag(flag.id);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.stopPropagation();
+                          void deleteFlag(flag.id);
+                        }
+                      }}
+                      aria-label={`Delete ${flag.label}`}
+                    >
+                      <Trash2 className="size-3" />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Network strip */}
           <div className="relative mt-2 flex flex-col gap-1.5 rounded-lg border border-primary/15 bg-primary/[0.04] px-2.5 py-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:text-sm">
             <div className="flex flex-wrap items-center gap-1.5 text-foreground/85">
               <Link2 className="size-3.5 text-primary" />
               <span className="font-medium text-primary">MediConnect registry linked</span>
-              <span className="text-muted-foreground">·</span>
-              <span className="text-muted-foreground">
-                City Hospital · PIC · AKUH · Chughtai Lab · NICVD
-              </span>
+              {facilities.length > 0 ? (
+                <>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-muted-foreground">{facilities.join(" · ")}</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-muted-foreground">No facilities on encounters yet</span>
+                </>
+              )}
             </div>
-            <Badge variant="secondary" className="w-fit bg-primary/10 text-primary text-[10px]">
-              Full sharing authorised · renews Dec 2026
+            <Badge variant="secondary" className="w-fit bg-primary/10 text-[10px] text-primary">
+              {consent?.telemetrySharing ? "Sharing authorised" : "Sharing restricted"}
             </Badge>
           </div>
         </div>
       </section>
 
       <div className="grid items-start gap-3 lg:grid-cols-[1.4fr_1fr] xl:gap-3.5">
-        {/* Timeline */}
         <Card id="encounter-timeline" className="overflow-hidden self-start">
           <CardHeader className="space-y-2.5 border-b bg-muted/30 px-4 py-3 sm:px-5">
             <div className="flex items-center justify-between gap-2">
@@ -420,7 +859,7 @@ export default function PatientRecordPage() {
                 </CardTitle>
               </div>
               <span className="text-[11px] font-medium text-muted-foreground">
-                {filtered.length} of {ENCOUNTERS.length}
+                {filtered.length} of {encounters.length}
               </span>
             </div>
 
@@ -428,8 +867,8 @@ export default function PatientRecordPage() {
               {FILTER_TABS.map((tab) => {
                 const count =
                   tab.id === "all"
-                    ? ENCOUNTERS.length
-                    : ENCOUNTERS.filter((e) => e.kind === tab.id).length;
+                    ? encounters.length
+                    : encounters.filter((e) => e.kind === tab.id).length;
                 return (
                   <button
                     key={tab.id}
@@ -462,7 +901,7 @@ export default function PatientRecordPage() {
                 >
                   All years
                 </button>
-                {YEARS.map((y) => (
+                {years.map((y) => (
                   <button
                     key={y}
                     type="button"
@@ -475,7 +914,6 @@ export default function PatientRecordPage() {
                     )}
                   >
                     {y}
-                    {y === 2026 ? " · current" : ""}
                   </button>
                 ))}
               </div>
@@ -503,11 +941,20 @@ export default function PatientRecordPage() {
               {filtered.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed bg-muted/30 px-4 py-5 text-center">
                   <p className="text-sm text-muted-foreground">
-                    No encounters match these filters.
+                    {encounters.length === 0
+                      ? "No encounters yet. Add the first clinical encounter."
+                      : "No encounters match these filters."}
                   </p>
-                  <Button variant="outline" size="sm" type="button" onClick={resetFilters}>
-                    Show all {ENCOUNTERS.length} encounters
-                  </Button>
+                  {encounters.length === 0 ? (
+                    <Button size="sm" type="button" onClick={openCreateEncounter}>
+                      <Plus className="size-3.5" />
+                      Add encounter
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="sm" type="button" onClick={resetFilters}>
+                      Show all {encounters.length} encounters
+                    </Button>
+                  )}
                 </div>
               ) : (
                 filtered.map((enc) => (
@@ -528,35 +975,59 @@ export default function PatientRecordPage() {
                     <div className="flex flex-wrap items-start justify-between gap-1.5">
                       <div className="space-y-0.5">
                         <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                          {enc.dateLabel}
+                          {formatEncounterDate(enc.occurredAt)}
                         </p>
                         <h3 className="font-heading text-sm font-semibold leading-snug">
                           {enc.title}
                         </h3>
                         <p className="text-xs text-muted-foreground">{enc.facility}</p>
                       </div>
-                      {enc.badge ? (
-                        <span
-                          className={cn(
-                            "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-                            enc.badge.tone === "critical" &&
-                              "bg-destructive text-destructive-foreground",
-                            enc.badge.tone === "stable" && "bg-primary/15 text-primary",
-                            enc.badge.tone === "info" && "bg-muted text-muted-foreground",
-                          )}
+                      <div className="flex items-center gap-1">
+                        {enc.badge ? (
+                          <span
+                            className={cn(
+                              "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                              enc.badge.tone === "critical" &&
+                                "bg-destructive text-destructive-foreground",
+                              enc.badge.tone === "stable" && "bg-primary/15 text-primary",
+                              enc.badge.tone === "info" && "bg-muted text-muted-foreground",
+                            )}
+                          >
+                            {enc.badge.label}
+                          </span>
+                        ) : null}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="size-7 p-0"
+                          type="button"
+                          onClick={() => openEditEncounter(enc)}
+                          aria-label="Edit encounter"
                         >
-                          {enc.badge.label}
-                        </span>
-                      ) : null}
+                          <Pencil className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="size-7 p-0 text-muted-foreground hover:text-destructive"
+                          type="button"
+                          onClick={() => void deleteEncounter(enc.id)}
+                          aria-label="Delete encounter"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
                     </div>
-                    <p className="mt-2 text-xs leading-relaxed text-foreground/90 sm:text-sm">
-                      {enc.summary}
-                    </p>
+                    {enc.summary ? (
+                      <p className="mt-2 text-xs leading-relaxed text-foreground/90 sm:text-sm">
+                        {enc.summary}
+                      </p>
+                    ) : null}
                     {enc.metrics?.length ? (
                       <div className="mt-2.5 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
                         {enc.metrics.map((m) => (
                           <div
-                            key={m.label}
+                            key={`${m.label}-${m.value}`}
                             className={cn(
                               "rounded-md bg-muted/60 px-2 py-1.5",
                               m.alert && "bg-destructive/10",
@@ -580,14 +1051,13 @@ export default function PatientRecordPage() {
                     {enc.links?.length ? (
                       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
                         {enc.links.map((link) => (
-                          <button
+                          <span
                             key={link}
-                            type="button"
-                            className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-primary"
                           >
                             <FileText className="size-3" />
                             {link}
-                          </button>
+                          </span>
                         ))}
                       </div>
                     ) : null}
@@ -598,84 +1068,171 @@ export default function PatientRecordPage() {
           </CardContent>
         </Card>
 
-        {/* Right column */}
         <div className="flex flex-col gap-3">
           <Card>
-            <CardHeader className="flex flex-row items-center gap-2 space-y-0 px-4 py-3 sm:px-5">
-              <Activity className="size-4 text-primary" />
-              <CardTitle className="font-heading text-base">Parsed diagnostic biomarkers</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3 sm:px-5">
+              <div className="flex items-center gap-2">
+                <Activity className="size-4 text-primary" />
+                <CardTitle className="font-heading text-base">Parsed diagnostic biomarkers</CardTitle>
+              </div>
+              <Button variant="outline" size="sm" className="h-7 text-xs" type="button" onClick={openCreateLab}>
+                <Plus className="size-3.5" />
+                Add lab
+              </Button>
             </CardHeader>
             <CardContent className="space-y-2.5 px-4 pb-4 pt-0 sm:px-5">
-              <div className="rounded-lg border bg-gradient-to-br from-destructive/5 to-transparent p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      hs-cTnI (troponin)
-                    </p>
-                    <p className="mt-0.5 font-heading text-xl font-semibold text-destructive">
-                      0.48{" "}
-                      <span className="text-sm font-medium text-destructive/80">ng/mL</span>
-                    </p>
-                    <p className="text-[11px] font-semibold text-destructive">High · acute rise</p>
-                  </div>
-                  <HeartPulse className="size-4 text-destructive/70" />
+              {labSeries.length === 0 ? (
+                <div className="rounded-lg border border-dashed bg-muted/30 px-3 py-4 text-center text-sm text-muted-foreground">
+                  No lab readings yet. Add a manual value or ingest a lab panel.
                 </div>
-                <Sparkline
-                  points={[0.02, 0.02, 0.03, 0.02, 0.04, 0.48]}
-                  stroke="var(--destructive)"
-                  fill="var(--destructive)"
-                  className="mt-2 h-10"
-                />
-              </div>
-
-              <div className="rounded-lg border p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Renal trajectory (eGFR)
-                </p>
-                <p className="mt-0.5 font-heading text-xl font-semibold">
-                  78{" "}
-                  <span className="text-sm font-medium text-muted-foreground">mL/min</span>
-                </p>
-                <p className="text-[11px] font-medium text-primary">Stage 2 · stable trend</p>
-                <Sparkline
-                  points={[95, 91, 88, 85, 82, 78]}
-                  stroke="var(--primary)"
-                  fill="var(--primary)"
-                  className="mt-2 h-10"
-                />
-              </div>
-
-              <div className="rounded-lg border p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Lipids &amp; glycemic control
-                </p>
-                <div className="mt-2 grid grid-cols-2 gap-1.5 text-sm">
-                  {[
-                    ["Total chol", "182"],
-                    ["LDL-C", "98"],
-                    ["HDL-C", "46"],
-                    ["Trig", "141"],
-                  ].map(([label, value]) => (
-                    <div key={label} className="rounded-md bg-muted/50 px-2 py-1.5">
-                      <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        {label}
-                      </p>
-                      <p className="text-sm font-semibold">{value}</p>
+              ) : (
+                <>
+                  {troponin ? (
+                    <div className="rounded-lg border bg-gradient-to-br from-destructive/5 to-transparent p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {troponin.testName}
+                          </p>
+                          <p className="mt-0.5 font-heading text-xl font-semibold text-destructive">
+                            {troponin.latest.value}{" "}
+                            <span className="text-sm font-medium text-destructive/80">
+                              {troponin.unit ?? ""}
+                            </span>
+                          </p>
+                          <p className="text-[11px] font-semibold text-destructive">
+                            {troponin.latest.flag ?? "Latest reading"}
+                          </p>
+                        </div>
+                      </div>
+                      <Sparkline
+                        points={troponin.points}
+                        stroke="var(--destructive)"
+                        fill="var(--destructive)"
+                        className="mt-2 h-10"
+                      />
                     </div>
-                  ))}
-                </div>
-                <div className="mt-2.5 space-y-1.5">
-                  <div className="flex items-center justify-between text-xs sm:text-sm">
-                    <span className="text-muted-foreground">HbA1c</span>
-                    <span className="font-semibold">5.8% · normal glycemia</span>
-                  </div>
-                  <Progress value={58} className="h-2" />
-                </div>
-              </div>
+                  ) : null}
 
-              <Button variant="outline" size="sm" className="w-full" type="button">
-                View all 42 historical lab panels
-              </Button>
+                  {egfr ? (
+                    <div className="rounded-lg border p-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        {egfr.testName}
+                      </p>
+                      <p className="mt-0.5 font-heading text-xl font-semibold">
+                        {egfr.latest.value}{" "}
+                        <span className="text-sm font-medium text-muted-foreground">
+                          {egfr.unit ?? ""}
+                        </span>
+                      </p>
+                      <p className="text-[11px] font-medium text-primary">
+                        {egfr.latest.flag ?? "Trend"}
+                      </p>
+                      <Sparkline
+                        points={egfr.points}
+                        stroke="var(--primary)"
+                        fill="var(--primary)"
+                        className="mt-2 h-10"
+                      />
+                    </div>
+                  ) : null}
+
+                  <div className="rounded-lg border p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Lipids &amp; glycemic control
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-1.5 text-sm">
+                      {lipidValues.map(([label, value]) => (
+                        <div key={label} className="rounded-md bg-muted/50 px-2 py-1.5">
+                          <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {label}
+                          </p>
+                          <p className="text-sm font-semibold">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {hba1c ? (
+                      <div className="mt-2.5 space-y-1.5">
+                        <div className="flex items-center justify-between text-xs sm:text-sm">
+                          <span className="text-muted-foreground">{hba1c.testName}</span>
+                          <span className="font-semibold">
+                            {hba1c.latest.value}
+                            {hba1c.unit ? `${hba1c.unit}` : "%"}
+                            {hba1c.latest.flag ? ` · ${hba1c.latest.flag}` : ""}
+                          </span>
+                        </div>
+                        <Progress
+                          value={Math.min(100, Math.max(0, Number(hba1c.latest.value) * 10))}
+                          className="h-2"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      All series ({labSeries.length})
+                    </p>
+                    <ul className="max-h-40 space-y-1 overflow-y-auto text-xs">
+                      {labSeries.map((s) => (
+                        <li
+                          key={s.testName}
+                          className="flex items-center justify-between gap-2 rounded-md border px-2 py-1.5"
+                        >
+                          <span className="min-w-0 truncate font-medium">
+                            {s.testName}{" "}
+                            <span className="font-normal text-muted-foreground">
+                              {s.latest.value}
+                              {s.unit ? ` ${s.unit}` : ""} · {s.points.length} pts
+                            </span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {manualLabs.length > 0 ? (
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Manual entries
+                      </p>
+                      <ul className="space-y-1">
+                        {manualLabs.map((lab) => (
+                          <li
+                            key={lab.id}
+                            className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-2 py-1.5 text-xs"
+                          >
+                            <span className="min-w-0 truncate">
+                              {lab.testName}: {lab.value}
+                              {lab.unit ? ` ${lab.unit}` : ""}
+                            </span>
+                            <span className="flex shrink-0 gap-0.5">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="size-6 p-0"
+                                type="button"
+                                onClick={() => openEditLab(lab)}
+                              >
+                                <Pencil className="size-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="size-6 p-0 text-muted-foreground hover:text-destructive"
+                                type="button"
+                                onClick={() => void deleteLab(lab.id)}
+                              >
+                                <Trash2 className="size-3" />
+                              </Button>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -693,47 +1250,50 @@ export default function PatientRecordPage() {
               <ConsentToggle
                 label="Emergency care override"
                 description="Unrestricted access for active pre-arrival triage"
-                active={consent.emergency}
-                onChange={(v) => setConsent((c) => ({ ...c, emergency: v }))}
+                active={consent?.emergencyOverride ?? true}
+                onChange={(v) => void updateConsentField("emergencyOverride", v)}
                 activeLabel="Active"
                 inactiveLabel="Off"
+                disabled={!consent}
               />
               <Separator />
               <ConsentToggle
                 label="Diagnostic telemetry & cath sharing"
                 description="Live vitals and ECG share with receiving facility"
-                active={consent.telemetry}
-                onChange={(v) => setConsent((c) => ({ ...c, telemetry: v }))}
+                active={consent?.telemetrySharing ?? true}
+                onChange={(v) => void updateConsentField("telemetrySharing", v)}
                 activeLabel="Authorised"
                 inactiveLabel="Blocked"
+                disabled={!consent}
               />
               <Separator />
               <ConsentToggle
                 label="Secondary research & bio-registry"
                 description="De-identified contributions to national research pools"
-                active={consent.research}
-                onChange={(v) => setConsent((c) => ({ ...c, research: v }))}
+                active={consent?.researchOptIn ?? false}
+                onChange={(v) => void updateConsentField("researchOptIn", v)}
                 activeLabel="Opted in"
                 inactiveLabel="Opted out"
+                disabled={!consent}
               />
 
               <div className="mt-2.5 rounded-lg bg-muted/50 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
                 <p className="font-semibold text-foreground">Access audit</p>
-                <p className="mt-1">
-                  Dr. Sarah Ahmed accessed this record for pre-arrival triage today at 14:19 PKT.
-                </p>
-                <p className="mt-0.5">
-                  Consent managed by patient · verified via CNIC + OTP 2FA.
-                </p>
-              </div>
-
-              <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-medium text-primary">
-                <button type="button" className="hover:underline">
-                  Revoke or modify directives
-                </button>
-                <button type="button" className="hover:underline">
-                  Full audit trail (.json)
-                </button>
+                {audit.length === 0 ? (
+                  <p className="mt-1">No access events recorded yet.</p>
+                ) : (
+                  <ul className="mt-1 space-y-1">
+                    {audit.slice(0, 5).map((row) => (
+                      <li key={row.id}>
+                        <span className="text-foreground">
+                          {row.actorName ?? "Clinician"}
+                        </span>{" "}
+                        · {formatAuditAction(row.action)} ·{" "}
+                        {formatEncounterDate(row.createdAt)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -743,10 +1303,247 @@ export default function PatientRecordPage() {
       <footer className="flex flex-col gap-1 rounded-lg border border-primary/10 bg-primary/[0.04] px-3 py-2 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-4">
         <span className="inline-flex items-center gap-1.5">
           <ShieldCheck className="size-3 text-primary" />
-          Clinical hash #0E62-F4A1 verified
+          Live patient record · audit logged
         </span>
         <span>MediConnect longitudinal schema · Pakistan national registry compliant</span>
       </footer>
+
+      <Sheet open={encounterOpen} onOpenChange={setEncounterOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>{editingEncounterId ? "Edit encounter" : "Add clinical encounter"}</SheetTitle>
+            <SheetDescription>
+              Timeline entries for emergency, cardio, ambulatory, or lab visits.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4">
+            <div className="space-y-1.5">
+              <Label>Kind</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={encounterForm.kind}
+                onChange={(e) =>
+                  setEncounterForm((f) => ({
+                    ...f,
+                    kind: e.target.value as EncounterKindValue,
+                  }))
+                }
+              >
+                <option value="emergency">Emergency</option>
+                <option value="cardio">Cardio / Cath</option>
+                <option value="ambulatory">Ambulatory</option>
+                <option value="labs">Labs</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Occurred at</Label>
+              <DateTimePicker
+                value={encounterForm.occurredAt}
+                onChange={(occurredAt) => setEncounterForm((f) => ({ ...f, occurredAt }))}
+                placeholder="Select date & time"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Title</Label>
+              <Input
+                value={encounterForm.title}
+                onChange={(e) => setEncounterForm((f) => ({ ...f, title: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Facility</Label>
+              <Input
+                value={encounterForm.facility}
+                onChange={(e) => setEncounterForm((f) => ({ ...f, facility: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Summary</Label>
+              <Textarea
+                value={encounterForm.summary}
+                onChange={(e) => setEncounterForm((f) => ({ ...f, summary: e.target.value }))}
+                rows={4}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label>Badge label</Label>
+                <Input
+                  value={encounterForm.badgeLabel}
+                  onChange={(e) => setEncounterForm((f) => ({ ...f, badgeLabel: e.target.value }))}
+                  placeholder="Stable"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Badge tone</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={encounterForm.badgeTone}
+                  onChange={(e) =>
+                    setEncounterForm((f) => ({
+                      ...f,
+                      badgeTone: e.target.value as EncounterBadge["tone"],
+                    }))
+                  }
+                >
+                  <option value="info">Info</option>
+                  <option value="stable">Stable</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={encounterForm.inbound}
+                onChange={(e) => setEncounterForm((f) => ({ ...f, inbound: e.target.checked }))}
+              />
+              Inbound / pre-arrival
+            </label>
+            <div className="space-y-1.5">
+              <Label>Metrics (one per line: Label: value!)</Label>
+              <Textarea
+                value={encounterForm.metricsText}
+                onChange={(e) => setEncounterForm((f) => ({ ...f, metricsText: e.target.value }))}
+                placeholder={"BP: 148/92!\nPulse: 104 bpm"}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Links (one per line)</Label>
+              <Textarea
+                value={encounterForm.linksText}
+                onChange={(e) => setEncounterForm((f) => ({ ...f, linksText: e.target.value }))}
+                rows={2}
+              />
+            </div>
+          </div>
+          <SheetFooter className="gap-2 sm:flex-row">
+            <Button variant="outline" type="button" onClick={() => setEncounterOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="gap-2"
+              disabled={saving}
+              onClick={() => void saveEncounter()}
+            >
+              {saving ? <PortalButtonSpinner /> : null}
+              {saving ? "Saving…" : editingEncounterId ? "Save changes" : "Add encounter"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={flagOpen} onOpenChange={setFlagOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-sm">
+          <SheetHeader>
+            <SheetTitle>{editingFlagId ? "Edit clinical flag" : "Add clinical flag"}</SheetTitle>
+            <SheetDescription>Header badges for allergies, procedures, and alerts.</SheetDescription>
+          </SheetHeader>
+          <div className="flex flex-1 flex-col gap-3 px-4 pb-4">
+            <div className="space-y-1.5">
+              <Label>Label</Label>
+              <Input
+                value={flagForm.label}
+                onChange={(e) => setFlagForm((f) => ({ ...f, label: e.target.value }))}
+                placeholder="Mild contrast allergy"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tone</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={flagForm.tone}
+                onChange={(e) =>
+                  setFlagForm((f) => ({
+                    ...f,
+                    tone: e.target.value as FlagForm["tone"],
+                  }))
+                }
+              >
+                <option value="info">Info</option>
+                <option value="warning">Warning</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+          </div>
+          <SheetFooter className="gap-2 sm:flex-row">
+            <Button variant="outline" type="button" onClick={() => setFlagOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" className="gap-2" disabled={saving} onClick={() => void saveFlag()}>
+              {saving ? <PortalButtonSpinner /> : null}
+              {saving ? "Saving…" : editingFlagId ? "Save changes" : "Add flag"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={labOpen} onOpenChange={setLabOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-sm">
+          <SheetHeader>
+            <SheetTitle>{editingLabId ? "Edit lab reading" : "Add lab reading"}</SheetTitle>
+            <SheetDescription>
+              Manual values are merged with labs extracted from clinical documents.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex flex-1 flex-col gap-3 px-4 pb-4">
+            <div className="space-y-1.5">
+              <Label>Test name</Label>
+              <Input
+                value={labForm.testName}
+                onChange={(e) => setLabForm((f) => ({ ...f, testName: e.target.value }))}
+                placeholder="hs-cTnI"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label>Value</Label>
+                <Input
+                  type="number"
+                  step="any"
+                  value={labForm.value}
+                  onChange={(e) => setLabForm((f) => ({ ...f, value: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Unit</Label>
+                <Input
+                  value={labForm.unit}
+                  onChange={(e) => setLabForm((f) => ({ ...f, unit: e.target.value }))}
+                  placeholder="ng/mL"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Flag (optional)</Label>
+              <Input
+                value={labForm.flag}
+                onChange={(e) => setLabForm((f) => ({ ...f, flag: e.target.value }))}
+                placeholder="High"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Observed at</Label>
+              <DateTimePicker
+                value={labForm.observedAt}
+                onChange={(observedAt) => setLabForm((f) => ({ ...f, observedAt }))}
+                placeholder="Select date & time"
+              />
+            </div>
+          </div>
+          <SheetFooter className="gap-2 sm:flex-row">
+            <Button variant="outline" type="button" onClick={() => setLabOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" className="gap-2" disabled={saving} onClick={() => void saveLab()}>
+              {saving ? <PortalButtonSpinner /> : null}
+              {saving ? "Saving…" : editingLabId ? "Save changes" : "Add lab"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

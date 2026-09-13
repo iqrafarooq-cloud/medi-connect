@@ -44,13 +44,38 @@ import {
   ZoomOut,
 } from "lucide-react";
 
+import { Avatar, AvatarFallback } from "@medi-connect/ui/components/avatar";
 import { Badge } from "@medi-connect/ui/components/badge";
+import { Bubble, BubbleContent } from "@medi-connect/ui/components/bubble";
 import { Button } from "@medi-connect/ui/components/button";
 import { Input } from "@medi-connect/ui/components/input";
-import { Label } from "@medi-connect/ui/components/label";
+import {
+  Message,
+  MessageAvatar,
+  MessageContent,
+  MessageHeader,
+} from "@medi-connect/ui/components/message";
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from "@medi-connect/ui/components/message-scroller";
 import { cn } from "@medi-connect/ui/lib/utils";
 
+import {
+  PortalButtonSpinner,
+  PortalInlineLoading,
+  PortalSpinner,
+} from "@/components/portal/portal-loading";
+import { PatientPickerDialog } from "@/components/portal/patient-picker-dialog";
+import { UploadRecordsDialog } from "@/components/portal/upload-records-dialog";
+
 import { client } from "@/utils/orpc";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useSpeechDictation } from "@/hooks/use-speech-dictation";
 
 type PatientRef = {
   id: string;
@@ -356,28 +381,29 @@ function CitationSources({
   if (citations.length === 0) return null;
 
   return (
-    <div className="mt-1 border-t border-border/70 pt-2">
-      <div className="mb-1.5 text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+    <div className="mt-1.5 border-t border-border/70 pt-1.5">
+      <div className="mb-1 text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
         Sources
       </div>
-      <ol className="flex flex-col gap-0.5">
+      <ol className="flex flex-col">
         {citations.map((c) => (
           <li key={`${c.index}-${c.documentId}-${c.page}`}>
             <button
               type="button"
               onClick={() => onOpen(c)}
-              className="group flex w-full items-start gap-2 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+              className="group flex w-full items-center gap-2 rounded-md px-1.5 py-0.5 text-left transition-colors hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
             >
-              <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded bg-primary/12 text-[10px] font-semibold tabular-nums text-primary">
+              <span className="flex size-4 shrink-0 items-center justify-center rounded bg-primary/12 text-[10px] font-semibold tabular-nums text-primary">
                 {c.index}
               </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[12px] font-medium text-foreground group-hover:text-primary">
-                  {shortDocLabel(c.filename)}
+              <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-foreground group-hover:text-primary">
+                {shortDocLabel(c.filename)}
+                <span className="font-normal text-muted-foreground">
+                  {" "}
+                  · p. {c.page}
                 </span>
-                <span className="text-[11px] text-muted-foreground">p. {c.page}</span>
               </span>
-              <ExternalLink className="mt-0.5 size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+              <ExternalLink className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
             </button>
           </li>
         ))}
@@ -551,6 +577,8 @@ function DocumentSurface({
 
 export default function AssistantPage() {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [loadingPatient, setLoadingPatient] = useState(false);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchHits, setSearchHits] = useState<PatientRef[]>([]);
@@ -558,9 +586,8 @@ export default function AssistantPage() {
   const [documents, setDocuments] = useState<ClinicalDoc[]>([]);
   const [docsSynced, setDocsSynced] = useState(0);
   const [docsFailed, setDocsFailed] = useState(0);
-  const [draft, setDraft] = useState(
-    "What is the eGFR trend and any documented drug allergies?",
-  );
+  const [draft, setDraft] = useState("");
+  const [interimVoice, setInterimVoice] = useState("");
   const [strictEhr, setStrictEhr] = useState(true);
   const [activeDocId, setActiveDocId] = useState<string>("");
   const [highlightOn, setHighlightOn] = useState(false);
@@ -568,13 +595,28 @@ export default function AssistantPage() {
   const [fullRecordOpen, setFullRecordOpen] = useState(false);
   const [chatSessionId, setChatSessionId] = useState<string | undefined>();
   const [flagReason, setFlagReason] = useState("");
-  const threadRef = useRef<HTMLDivElement>(null);
   const groundingRef = useRef<HTMLDivElement>(null);
   const patientIdRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | undefined>(undefined);
 
   patientIdRef.current = patient?.id ?? null;
   sessionIdRef.current = chatSessionId;
+
+  const { supported: voiceSupported, listening, toggle: toggleVoice, stop: stopVoice } =
+    useSpeechDictation({
+      lang: "en-US",
+      onFinalTranscript: (text) => {
+        setDraft((prev) => {
+          const base = prev.trim();
+          return base ? `${base} ${text}` : text;
+        });
+        setInterimVoice("");
+      },
+      onInterimTranscript: (text) => setInterimVoice(text),
+      onUnsupported: () =>
+        toast.message("Voice dictation is not supported in this browser"),
+      onError: (message) => toast.error(message),
+    });
 
   const transport = useMemo(
     () =>
@@ -633,66 +675,67 @@ export default function AssistantPage() {
   }, [patient?.id, documents, refreshPatient]);
 
   useEffect(() => {
-    threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, busy]);
-
-  useEffect(() => {
     if (!highlightOn) return;
     groundingRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     const t = window.setTimeout(() => setHighlightOn(false), 2200);
     return () => window.clearTimeout(t);
   }, [highlightOn, activeDocId]);
 
-  // Bootstrap Eleanor if present
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const rows = await client.patient.search({ query: "Eleanor Vance" });
-        const hit = rows[0];
-        if (!hit || cancelled) return;
-        await refreshPatient(hit.id);
-      } catch {
-        // clinic may not be registered yet
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshPatient]);
-
   async function selectPatient(p: PatientRef) {
     setChatSessionId(undefined);
     setMessages([]);
     setPickerOpen(false);
-    await refreshPatient(p.id);
-    toast.message(`Active patient: ${p.fullName}`);
-  }
-
-  async function runSearch(e: React.FormEvent) {
-    e.preventDefault();
-    if (!query.trim()) return;
-    setSearching(true);
+    setLoadingPatient(true);
     try {
-      const rows = await client.patient.search({ query: query.trim() });
-      setSearchHits(
-        rows.map((r) => ({
-          id: r.id,
-          fullName: r.fullName,
-          cnic: r.cnic,
-          bloodType: r.bloodType,
-          dob: r.dateOfBirth,
-          age: ageFromDob(r.dateOfBirth),
-          sex: r.gender === "female" ? "F" : r.gender === "male" ? "M" : r.gender,
-        })),
-      );
-      if (!rows.length) toast.message("No registry match");
+      await refreshPatient(p.id);
+      toast.message(`Active patient: ${p.fullName}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Search failed");
+      toast.error(error instanceof Error ? error.message : "Could not load patient");
     } finally {
-      setSearching(false);
+      setLoadingPatient(false);
     }
   }
+
+  const debouncedQuery = useDebouncedValue(query, 300);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const q = debouncedQuery.trim();
+    let cancelled = false;
+    if (!q) {
+      setSearchHits([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    client.patient
+      .search({ query: q })
+      .then((rows) => {
+        if (cancelled) return;
+        setSearchHits(
+          rows.map((r) => ({
+            id: r.id,
+            fullName: r.fullName,
+            cnic: r.cnic,
+            bloodType: r.bloodType,
+            dob: r.dateOfBirth,
+            age: ageFromDob(r.dateOfBirth),
+            sex: r.gender === "female" ? "F" : r.gender === "male" ? "M" : r.gender,
+          })),
+        );
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          toast.error(error instanceof Error ? error.message : "Search failed");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setSearching(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pickerOpen, debouncedQuery]);
 
   function openCitation(citation: CitationTarget) {
     if (!documents.some((d) => d.id === citation.documentId)) {
@@ -707,27 +750,10 @@ export default function AssistantPage() {
   async function send(text?: string) {
     const content = (text ?? draft).trim();
     if (!content || !patient) return;
+    stopVoice();
+    setInterimVoice("");
     setDraft("");
     await sendMessage({ text: content });
-  }
-
-  async function onUpload(file: File) {
-    if (!patient) return;
-    const form = new FormData();
-    form.set("file", file);
-    form.set("patientId", patient.id);
-    form.set(
-      "category",
-      file.name.toLowerCase().endsWith(".csv") ? "home_monitoring" : "report",
-    );
-    const res = await fetch("/api/uploads/patient-file", { method: "POST", body: form });
-    const json = (await res.json()) as { error?: string };
-    if (!res.ok) {
-      toast.error(json.error ?? "Upload failed");
-      return;
-    }
-    toast.success("Upload queued for ingestion");
-    await refreshPatient(patient.id);
   }
 
   function findInsertApproval(message: UIMessage) {
@@ -748,39 +774,13 @@ export default function AssistantPage() {
     return null;
   }
 
-  if (!patient) {
-    return (
-      <div className="flex flex-col items-center gap-4 rounded-xl border bg-card p-10 text-center shadow-sm">
-        <Brain className="size-10 text-primary" />
-        <div>
-          <h1 className="font-heading text-xl font-semibold">Clinical History Assistant</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Select a patient to start. Seed Eleanor Vance with{" "}
-            <code className="rounded bg-muted px-1">pnpm seed:eleanor</code> after configuring
-            Vertex + Supabase.
-          </p>
-        </div>
-        <Button type="button" onClick={() => setPickerOpen(true)}>
-          <Search className="size-4" />
-          Find patient
-        </Button>
-        {pickerOpen ? (
-          <PatientPicker
-            query={query}
-            setQuery={setQuery}
-            searching={searching}
-            searchHits={searchHits}
-            onSearch={runSearch}
-            onSelect={selectPatient}
-            onClose={() => setPickerOpen(false)}
-          />
-        ) : null}
-      </div>
-    );
-  }
-
   return (
-    <div className="flex w-full max-w-none flex-col gap-3">
+    <div className="relative flex w-full max-w-none flex-col gap-3">
+      {loadingPatient ? (
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-xl bg-background/85">
+          <PortalSpinner label="Loading patient records…" minHeight="min-h-[24vh]" />
+        </div>
+      ) : null}
       <style>{`
         .mc-assistant-desk {
           display: grid;
@@ -806,68 +806,86 @@ export default function AssistantPage() {
           <div className="relative flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-base font-bold text-primary-foreground shadow-md sm:size-12 sm:text-lg">
-                {initials(patient.fullName)}
+                {patient ? initials(patient.fullName) : <Brain className="size-5" aria-hidden />}
               </div>
               <div className="min-w-0">
-                <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0">
-                  <h1 className="font-heading text-lg font-semibold tracking-tight sm:text-xl">
-                    {patient.fullName}
-                  </h1>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {patient.age != null ? `${patient.age} ` : ""}
-                    {patient.sex ?? ""}
-                    {patient.bloodType ? ` · ${patient.bloodType}` : ""}
-                  </p>
-                </div>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  <span className="font-mono text-foreground/80">
-                    CNIC {formatCnic(patient.cnic)}
-                  </span>
-                  {patient.mrn ? ` · MRN #${patient.mrn}` : ""}
-                  {patient.dob ? ` · DOB ${patient.dob}` : ""}
-                  {` · ${docsSynced} docs ready`}
-                  {docsFailed ? ` · ${docsFailed} failed` : ""}
-                </p>
+                {patient ? (
+                  <>
+                    <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0">
+                      <h1 className="font-heading text-lg font-semibold tracking-tight sm:text-xl">
+                        {patient.fullName}
+                      </h1>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {patient.age != null ? `${patient.age} ` : ""}
+                        {patient.sex ?? ""}
+                        {patient.bloodType ? ` · ${patient.bloodType}` : ""}
+                      </p>
+                    </div>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      <span className="font-mono text-foreground/80">
+                        CNIC {formatCnic(patient.cnic)}
+                      </span>
+                      {patient.mrn ? ` · MRN #${patient.mrn}` : ""}
+                      {patient.dob ? ` · DOB ${patient.dob}` : ""}
+                      {` · ${docsSynced} docs ready`}
+                      {docsFailed ? ` · ${docsFailed} failed` : ""}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h1 className="font-heading text-lg font-semibold tracking-tight sm:text-xl">
+                      Clinical History Assistant
+                    </h1>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      Select a patient to load documents and start grounded chat.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
 
             <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
-              <Button variant="outline" size="sm" type="button" onClick={() => setPickerOpen(true)}>
-                <ArrowLeftRight className="size-4" />
-                Switch patient
+              <Button
+                variant={patient ? "outline" : "default"}
+                size="sm"
+                type="button"
+                className="gap-1.5"
+                onClick={() => setPickerOpen(true)}
+              >
+                {patient ? <ArrowLeftRight className="size-4" /> : <Search className="size-4" />}
+                {patient ? "Switch patient" : "Select patient"}
               </Button>
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90">
-                <Upload className="size-4" />
-                Upload record
-                <input
-                  type="file"
-                  accept=".pdf,.csv,application/pdf,text/csv"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void onUpload(f);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
+              {patient ? (
+                <Button
+                  size="sm"
+                  type="button"
+                  className="gap-1.5"
+                  onClick={() => setUploadOpen(true)}
+                >
+                  <Upload className="size-4" />
+                  Upload records
+                </Button>
+              ) : null}
             </div>
           </div>
 
-          <div className="relative mt-2.5 flex flex-wrap gap-1.5">
-            <Badge className="border-transparent bg-chart-2/15 px-2 py-0.5 text-chart-2 hover:bg-chart-2/20">
-              Citation-grounded · clinician-verified
-            </Badge>
-            <Badge variant="secondary" className="gap-1 px-2 py-0.5">
-              <BadgeCheck className="size-3" />
-              {docsSynced} docs indexed
-            </Badge>
-            {docsFailed ? (
-              <Badge variant="destructive" className="gap-1 px-2 py-0.5">
-                <AlertTriangle className="size-3" />
-                {docsFailed} ingestion failed
+          {patient ? (
+            <div className="relative mt-2.5 flex flex-wrap gap-1.5">
+              <Badge className="border-transparent bg-chart-2/15 px-2 py-0.5 text-chart-2 hover:bg-chart-2/20">
+                Citation-grounded · clinician-verified
               </Badge>
-            ) : null}
-          </div>
+              <Badge variant="secondary" className="gap-1 px-2 py-0.5">
+                <BadgeCheck className="size-3" />
+                {docsSynced} docs indexed
+              </Badge>
+              {docsFailed ? (
+                <Badge variant="destructive" className="gap-1 px-2 py-0.5">
+                  <AlertTriangle className="size-3" />
+                  {docsFailed} ingestion failed
+                </Badge>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -911,7 +929,7 @@ export default function AssistantPage() {
                 <button
                   key={chip}
                   type="button"
-                  disabled={busy}
+                  disabled={busy || !patient}
                   onClick={() => void send(chip)}
                   className="rounded-lg bg-muted px-2 py-1 text-left text-[11px] font-semibold text-foreground ring-1 ring-border transition-colors hover:bg-accent disabled:opacity-50"
                 >
@@ -920,181 +938,225 @@ export default function AssistantPage() {
               ))}
             </div>
 
-            <div
-              ref={threadRef}
-              className="mt-2 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1"
-            >
-              {messages.length === 0 ? (
-                <div className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">
-                  Ask about labs, meds, allergies, or trends. Answers cite ingested documents only.
-                </div>
-              ) : null}
+            <MessageScrollerProvider defaultScrollPosition="end" autoScroll>
+              <MessageScroller className="mt-2 min-h-0 flex-1">
+                <MessageScrollerViewport>
+                  <MessageScrollerContent className="gap-3 py-3">
+                    {messages.length === 0 ? (
+                      <MessageScrollerItem>
+                        <Bubble variant="muted">
+                          <BubbleContent className="text-sm text-muted-foreground">
+                            {patient
+                              ? "Ask about labs, meds, allergies, or trends. Answers cite ingested documents only."
+                              : "Select a patient to start. Chat stays empty until a registry patient is active."}
+                          </BubbleContent>
+                        </Bubble>
+                      </MessageScrollerItem>
+                    ) : null}
 
-              {messages.map((m) => {
-                if (m.role === "user") {
-                  const text = m.parts
-                    .filter((p) => p.type === "text")
-                    .map((p) => ("text" in p ? p.text : ""))
-                    .join("");
-                  return (
-                    <div key={m.id} className="flex items-start justify-end gap-3 pl-8">
-                      <div className="max-w-[85%] rounded-xl rounded-tr-sm bg-primary p-3 text-primary-foreground shadow-sm">
-                        <p className="text-sm leading-relaxed">{text}</p>
-                      </div>
-                      <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-primary">
-                        You
-                      </div>
-                    </div>
-                  );
-                }
+                    {messages.map((m) => {
+                      if (m.role === "user") {
+                        const text = m.parts
+                          .filter((p) => p.type === "text")
+                          .map((p) => ("text" in p ? p.text : ""))
+                          .join("");
+                        return (
+                          <MessageScrollerItem key={m.id}>
+                            <Message align="end">
+                              <MessageAvatar className="size-9">
+                                <Avatar className="size-9">
+                                  <AvatarFallback className="bg-primary/10 text-[11px] font-semibold text-primary">
+                                    You
+                                  </AvatarFallback>
+                                </Avatar>
+                              </MessageAvatar>
+                              <MessageContent>
+                                <Bubble variant="default" align="end">
+                                  <BubbleContent className="text-sm leading-relaxed">
+                                    {text}
+                                  </BubbleContent>
+                                </Bubble>
+                              </MessageContent>
+                            </Message>
+                          </MessageScrollerItem>
+                        );
+                      }
 
-                if (m.role !== "assistant") return null;
+                      if (m.role !== "assistant") return null;
 
-                const text = m.parts
-                  .filter((p) => p.type === "text")
-                  .map((p) => ("text" in p ? p.text : ""))
-                  .join("");
-                const msgCitations = collectCitations(m).map((c) => ({
-                  ...c,
-                  filename:
-                    documents.find((d) => d.id === c.documentId)?.originalFilename ?? c.filename,
-                }));
-                const approval = findInsertApproval(m);
+                      const text = m.parts
+                        .filter((p) => p.type === "text")
+                        .map((p) => ("text" in p ? p.text : ""))
+                        .join("");
+                      const msgCitations = collectCitations(m).map((c) => ({
+                        ...c,
+                        filename:
+                          documents.find((d) => d.id === c.documentId)?.originalFilename ??
+                          c.filename,
+                      }));
+                      const approval = findInsertApproval(m);
 
-                return (
-                  <div key={m.id} className="flex items-start gap-3 pr-8">
-                    <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-chart-5 text-chart-2 shadow-sm">
-                      <Bot className="size-5" />
-                    </div>
-                    <div className="flex max-w-[92%] flex-col gap-2 rounded-xl rounded-tl-sm bg-muted p-3 text-foreground shadow-sm">
-                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-primary">
-                        MediConnect CDS Agent
-                      </div>
-                      {text ? (
-                        <AssistantMarkdown
-                          text={text}
-                          citations={msgCitations}
-                          onOpen={openCitation}
+                      return (
+                        <MessageScrollerItem key={m.id}>
+                          <Message align="start">
+                            <MessageAvatar className="size-9 bg-muted">
+                              <Bot className="size-5 text-primary" aria-hidden />
+                            </MessageAvatar>
+                            <MessageContent>
+                              <MessageHeader>MediConnect CDS Agent</MessageHeader>
+                              <Bubble variant="muted">
+                                {text ? (
+                                  <BubbleContent className="text-sm leading-relaxed">
+                                    <AssistantMarkdown
+                                      text={text}
+                                      citations={msgCitations}
+                                      onOpen={openCitation}
+                                    />
+                                  </BubbleContent>
+                                ) : null}
+                              </Bubble>
+                              <CitationSources citations={msgCitations} onOpen={openCitation} />
+                              {approval ? (
+                                <Bubble variant="outline" className="mt-1 max-w-full">
+                                  <BubbleContent className="flex flex-col gap-2 p-3 text-sm">
+                                    <div className="flex items-center gap-1.5">
+                                      <ClipboardCheck className="size-4 text-primary" />
+                                      <div>
+                                        <p className="font-semibold text-foreground">
+                                          Clinician verification
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                          Review before chart insert
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <p className="rounded-md bg-muted p-2 text-foreground">
+                                      {approval.input?.proposedText}
+                                    </p>
+                                    <Input
+                                      placeholder="Flag reason (required to flag)"
+                                      value={flagReason}
+                                      onChange={(e) => setFlagReason(e.target.value)}
+                                      className="h-9"
+                                    />
+                                    <div className="flex flex-wrap gap-2">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={async () => {
+                                          if (!flagReason.trim()) {
+                                            toast.error("Provide a flag reason");
+                                            return;
+                                          }
+                                          try {
+                                            await client.clinical.flagDiscrepancy({
+                                              patientId: patient!.id,
+                                              messageId: approval.toolCallId ?? m.id,
+                                              proposedText: approval.input?.proposedText ?? "",
+                                              citationDocumentIds:
+                                                approval.input?.citationDocumentIds ?? [],
+                                              reason: flagReason.trim(),
+                                            });
+                                            addToolApprovalResponse({
+                                              id: approval.approval!.id,
+                                              approved: false,
+                                            });
+                                            setFlagReason("");
+                                            toast.message(
+                                              "Discrepancy flagged for compliance review",
+                                            );
+                                          } catch (error) {
+                                            toast.error(
+                                              error instanceof Error ? error.message : "Flag failed",
+                                            );
+                                          }
+                                        }}
+                                      >
+                                        Flag discrepancy
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        className="gap-1.5"
+                                        onClick={() => {
+                                          addToolApprovalResponse({
+                                            id: approval.approval!.id,
+                                            approved: true,
+                                          });
+                                          toast.success("Accepted into note (audit logged)");
+                                        }}
+                                      >
+                                        <Check className="size-3.5" />
+                                        Accept & insert
+                                      </Button>
+                                    </div>
+                                  </BubbleContent>
+                                </Bubble>
+                              ) : null}
+                            </MessageContent>
+                          </Message>
+                        </MessageScrollerItem>
+                      );
+                    })}
+
+                    {busy ? (
+                      <MessageScrollerItem>
+                        <PortalInlineLoading
+                          label="Retrieving grounded sources…"
+                          className="text-xs"
                         />
-                      ) : null}
+                      </MessageScrollerItem>
+                    ) : null}
+                  </MessageScrollerContent>
+                  <MessageScrollerButton direction="end" />
+                </MessageScrollerViewport>
+              </MessageScroller>
+            </MessageScrollerProvider>
 
-                      <CitationSources citations={msgCitations} onOpen={openCitation} />
-
-                      {approval ? (
-                        <div className="mt-1 flex flex-col gap-2 rounded-xl bg-white p-2">
-                          <div className="flex items-center gap-1.5">
-                            <ClipboardCheck className="size-[18px] text-chart-3" />
-                            <div className="flex flex-col">
-                              <span className="text-[11px] font-semibold text-foreground">
-                                Clinician HITL Verification
-                              </span>
-                              <span className="text-[13px] text-muted-foreground">
-                                Review proposed note text before chart insert
-                              </span>
-                            </div>
-                          </div>
-                          <p className="rounded-lg bg-muted p-2 text-[13px] text-foreground">
-                            {approval.input?.proposedText}
-                          </p>
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                            <Input
-                              placeholder="Flag reason (required to flag)"
-                              value={flagReason}
-                              onChange={(e) => setFlagReason(e.target.value)}
-                              className="h-9"
-                            />
-                            <div className="flex items-center gap-1.5">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={async () => {
-                                  if (!flagReason.trim()) {
-                                    toast.error("Provide a flag reason");
-                                    return;
-                                  }
-                                  try {
-                                    await client.clinical.flagDiscrepancy({
-                                      patientId: patient.id,
-                                      messageId: approval.toolCallId ?? m.id,
-                                      proposedText: approval.input?.proposedText ?? "",
-                                      citationDocumentIds:
-                                        approval.input?.citationDocumentIds ?? [],
-                                      reason: flagReason.trim(),
-                                    });
-                                    addToolApprovalResponse({
-                                      id: approval.approval!.id,
-                                      approved: false,
-                                    });
-                                    setFlagReason("");
-                                    toast.message("Discrepancy flagged for compliance review");
-                                  } catch (error) {
-                                    toast.error(
-                                      error instanceof Error ? error.message : "Flag failed",
-                                    );
-                                  }
-                                }}
-                              >
-                                Flag Discrepancy
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={() => {
-                                  addToolApprovalResponse({
-                                    id: approval.approval!.id,
-                                    approved: true,
-                                  });
-                                  toast.success("Accepted into note (audit logged)");
-                                }}
-                              >
-                                <Check className="size-3.5" />
-                                Accept & Insert into Note
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {busy ? (
-                <div className="text-[12px] text-muted-foreground">Retrieving grounded sources…</div>
-              ) : null}
-            </div>
-
-            <div className="mt-3 shrink-0 rounded-xl bg-muted p-2 pt-2">
-              <div className="flex items-center justify-between px-1.5 pb-1.5 text-[11px] font-semibold text-muted-foreground">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="flex items-center gap-1 font-semibold text-primary">
-                    <Lock className="size-4" />
-                    RAG Document Grounding: {strictEhr ? "Strict" : "Relaxed"}
-                  </span>
-                  <span>•</span>
-                  <span>Context window: {docsSynced} Indexed Docs</span>
-                </div>
+            <div className="mt-3 shrink-0 space-y-2 rounded-xl border border-border bg-muted/40 p-2">
+              <div className="flex flex-wrap items-center gap-2 px-1 text-[11px] font-semibold text-muted-foreground">
+                <span className="flex items-center gap-1 text-primary">
+                  <Lock className="size-4" />
+                  RAG grounding: {strictEhr ? "Strict" : "Relaxed"}
+                </span>
+                <span aria-hidden>•</span>
+                <span>{docsSynced} indexed docs</span>
               </div>
-              <div className="flex items-center gap-1.5 rounded-xl bg-white p-1.5">
-                <label className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
+              <div className="flex items-center gap-1.5 rounded-xl bg-background p-1.5 ring-1 ring-border">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "shrink-0 text-muted-foreground hover:bg-secondary hover:text-foreground",
+                    !patient && "pointer-events-none opacity-40",
+                  )}
+                  disabled={!patient}
+                  aria-label="Upload records"
+                  onClick={() => setUploadOpen(true)}
+                >
                   <Paperclip className="size-5" />
-                  <input
-                    type="file"
-                    accept=".pdf,.csv,application/pdf,text/csv"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) void onUpload(f);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
-                <input
-                  className="w-full bg-transparent px-1 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-                  placeholder="Ask anything about patient history, medication interactions, or lab trends..."
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
+                </Button>
+                <Input
+                  className="h-10 flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0"
+                  disabled={!patient}
+                  placeholder={
+                    !patient
+                      ? "Select a patient to ask clinical questions…"
+                      : listening
+                        ? "Listening…"
+                        : "Ask about history, medications, or lab trends…"
+                  }
+                  value={
+                    interimVoice
+                      ? `${draft}${draft && !draft.endsWith(" ") ? " " : ""}${interimVoice}`
+                      : draft
+                  }
+                  onChange={(e) => {
+                    setInterimVoice("");
+                    setDraft(e.target.value);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
@@ -1103,20 +1165,39 @@ export default function AssistantPage() {
                   }}
                   aria-label="Clinical query"
                 />
-                <button
-                  type="button"
-                  className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                  title="Voice Dictation"
-                  onClick={() => toast.message("Voice input is optional / not wired")}
-                >
-                  <Mic className="size-5" />
-                </button>
+                {listening ? (
+                  <span className="shrink-0 px-1 text-[10px] font-semibold text-destructive">
+                    REC
+                  </span>
+                ) : null}
                 <Button
                   type="button"
-                  className="h-10 shrink-0"
-                  disabled={busy || !draft.trim()}
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "shrink-0",
+                    listening && "text-destructive hover:text-destructive",
+                  )}
+                  aria-pressed={listening}
+                  aria-label={listening ? "Stop voice dictation" : "Start voice dictation"}
+                  disabled={!patient || !voiceSupported}
+                  onClick={() => {
+                    if (!voiceSupported) {
+                      toast.message("Voice dictation is not supported in this browser");
+                      return;
+                    }
+                    toggleVoice();
+                  }}
+                >
+                  <Mic className={cn("size-5", listening && "animate-pulse")} />
+                </Button>
+                <Button
+                  type="button"
+                  className="h-10 shrink-0 gap-2 px-4"
+                  disabled={busy || !patient || !draft.trim()}
                   onClick={() => void send()}
                 >
+                  {busy ? <PortalButtonSpinner /> : null}
                   Query
                   <Send className="size-4" />
                 </Button>
@@ -1186,7 +1267,7 @@ export default function AssistantPage() {
               })}
             </div>
 
-            {activeDoc ? (
+            {activeDoc && patient ? (
               <>
                 <div className="min-h-0 flex-1 overflow-y-auto">
                   <DocumentSurface
@@ -1245,14 +1326,16 @@ export default function AssistantPage() {
               </>
             ) : (
               <div className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">
-                No clinical documents yet. Upload PDFs/CSV or run the Eleanor seed.
+                {patient
+                  ? "No clinical documents yet. Upload a PDF or CSV to ground the assistant."
+                  : "Select a patient to review clinical documents and citations."}
               </div>
             )}
           </aside>
         </div>
       </section>
 
-      {fullRecordOpen && activeDoc ? (
+      {fullRecordOpen && activeDoc && patient ? (
         <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-foreground/45 p-3 sm:p-6">
           <div
             role="dialog"
@@ -1291,106 +1374,32 @@ export default function AssistantPage() {
         </div>
       ) : null}
 
-      {pickerOpen ? (
-        <PatientPicker
-          query={query}
-          setQuery={setQuery}
-          searching={searching}
-          searchHits={searchHits}
-          onSearch={runSearch}
-          onSelect={selectPatient}
-          onClose={() => setPickerOpen(false)}
-          activeId={patient.id}
+      <PatientPickerDialog
+        open={pickerOpen}
+        onOpenChange={(open) => {
+          setPickerOpen(open);
+          if (!open) {
+            setQuery("");
+            setSearchHits([]);
+            setSearching(false);
+          }
+        }}
+        query={query}
+        setQuery={setQuery}
+        searching={searching}
+        searchHits={searchHits}
+        onSelect={selectPatient}
+        activeId={patient?.id}
+      />
+
+      {patient ? (
+        <UploadRecordsDialog
+          open={uploadOpen}
+          onOpenChange={setUploadOpen}
+          patientId={patient.id}
+          onDocumentsChanged={() => refreshPatient(patient.id)}
         />
       ) : null}
-    </div>
-  );
-}
-
-function PatientPicker({
-  query,
-  setQuery,
-  searching,
-  searchHits,
-  onSearch,
-  onSelect,
-  onClose,
-  activeId,
-}: {
-  query: string;
-  setQuery: (v: string) => void;
-  searching: boolean;
-  searchHits: PatientRef[];
-  onSearch: (e: React.FormEvent) => void;
-  onSelect: (p: PatientRef) => void;
-  onClose: () => void;
-  activeId?: string;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <button
-        type="button"
-        className="absolute inset-0 bg-foreground/40"
-        aria-label="Close patient picker"
-        onClick={onClose}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-xl border border-border bg-white shadow-xl sm:rounded-xl"
-      >
-        <div className="border-b border-border px-5 py-4">
-          <h2 className="font-heading text-lg font-semibold">Switch Patient</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Search the global registry (try Eleanor Vance / 42101-8839201-5).
-          </p>
-        </div>
-        <form onSubmit={onSearch} className="space-y-2 border-b border-border px-5 py-4">
-          <Label htmlFor="assistant-patient-q">CNIC or name</Label>
-          <div className="flex gap-2">
-            <div className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="assistant-patient-q"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Eleanor or 42101-8839201-5"
-                className="h-10 pl-9"
-                autoFocus
-              />
-            </div>
-            <Button type="submit" className="h-10 shrink-0" disabled={searching}>
-              {searching ? "…" : "Search"}
-            </Button>
-          </div>
-        </form>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          <ul className="space-y-2">
-            {searchHits.map((p) => (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(p)}
-                  className={cn(
-                    "flex w-full flex-col rounded-xl px-3 py-2.5 text-left transition",
-                    activeId === p.id ? "bg-chart-5" : "bg-muted hover:bg-secondary",
-                  )}
-                >
-                  <span className="font-heading text-sm font-semibold">{p.fullName}</span>
-                  <span className="text-xs text-muted-foreground">
-                    CNIC {formatCnic(p.cnic)}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="border-t border-border px-5 py-3">
-          <Button type="button" variant="outline" className="h-10 w-full" onClick={onClose}>
-            Cancel
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }

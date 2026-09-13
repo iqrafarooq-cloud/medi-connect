@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import {
+  boolean,
   date,
   index,
   integer,
@@ -12,6 +13,9 @@ import {
 
 import { user } from "./auth";
 import { clinic } from "./clinic";
+
+export type EncounterMetric = { label: string; value: string; alert?: boolean };
+export type EncounterBadge = { label: string; tone: "critical" | "stable" | "info" };
 
 export const patient = pgTable(
   "patient",
@@ -87,6 +91,85 @@ export const patientRemedyCheck = pgTable(
   (table) => [index("patient_remedy_check_patient_id_idx").on(table.patientId, table.createdAt)],
 );
 
+export const patientEncounter = pgTable(
+  "patient_encounter",
+  {
+    id: text("id").primaryKey(),
+    patientId: text("patient_id")
+      .notNull()
+      .references(() => patient.id, { onDelete: "cascade" }),
+    clinicId: text("clinic_id").references(() => clinic.id, { onDelete: "set null" }),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id),
+    kind: text("kind").notNull(), // emergency | cardio | ambulatory | labs
+    occurredAt: timestamp("occurred_at").notNull(),
+    title: text("title").notNull(),
+    facility: text("facility").notNull(),
+    summary: text("summary").notNull().default(""),
+    badge: jsonb("badge").$type<EncounterBadge | null>(),
+    metrics: jsonb("metrics").$type<EncounterMetric[] | null>(),
+    links: jsonb("links").$type<string[] | null>(),
+    inbound: boolean("inbound").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("patient_encounter_patient_id_idx").on(table.patientId),
+    index("patient_encounter_occurred_at_idx").on(table.patientId, table.occurredAt),
+    index("patient_encounter_kind_idx").on(table.patientId, table.kind),
+  ],
+);
+
+export const patientClinicalFlag = pgTable(
+  "patient_clinical_flag",
+  {
+    id: text("id").primaryKey(),
+    patientId: text("patient_id")
+      .notNull()
+      .references(() => patient.id, { onDelete: "cascade" }),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id),
+    label: text("label").notNull(),
+    tone: text("tone").notNull().default("info"), // critical | warning | info
+    sortOrder: integer("sort_order").notNull().default(0),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("patient_clinical_flag_patient_id_idx").on(table.patientId),
+    index("patient_clinical_flag_sort_idx").on(table.patientId, table.sortOrder),
+  ],
+);
+
+export const patientConsent = pgTable(
+  "patient_consent",
+  {
+    id: text("id").primaryKey(),
+    patientId: text("patient_id")
+      .notNull()
+      .references(() => patient.id, { onDelete: "cascade" }),
+    emergencyOverride: boolean("emergency_override").notNull().default(true),
+    telemetrySharing: boolean("telemetry_sharing").notNull().default(true),
+    researchOptIn: boolean("research_opt_in").notNull().default(false),
+    updatedByUserId: text("updated_by_user_id").references(() => user.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [uniqueIndex("patient_consent_patient_id_uidx").on(table.patientId)],
+);
+
 export const patientRelations = relations(patient, ({ one, many }) => ({
   linkedUser: one(user, {
     fields: [patient.userId],
@@ -104,6 +187,12 @@ export const patientRelations = relations(patient, ({ one, many }) => ({
   }),
   files: many(patientFile),
   remedyChecks: many(patientRemedyCheck),
+  encounters: many(patientEncounter),
+  clinicalFlags: many(patientClinicalFlag),
+  consent: one(patientConsent, {
+    fields: [patient.id],
+    references: [patientConsent.patientId],
+  }),
 }));
 
 export const patientRemedyCheckRelations = relations(patientRemedyCheck, ({ one }) => ({
@@ -121,5 +210,30 @@ export const patientFileRelations = relations(patientFile, ({ one }) => ({
   clinic: one(clinic, {
     fields: [patientFile.uploadedByClinicId],
     references: [clinic.id],
+  }),
+}));
+
+export const patientEncounterRelations = relations(patientEncounter, ({ one }) => ({
+  patient: one(patient, {
+    fields: [patientEncounter.patientId],
+    references: [patient.id],
+  }),
+  clinic: one(clinic, {
+    fields: [patientEncounter.clinicId],
+    references: [clinic.id],
+  }),
+}));
+
+export const patientClinicalFlagRelations = relations(patientClinicalFlag, ({ one }) => ({
+  patient: one(patient, {
+    fields: [patientClinicalFlag.patientId],
+    references: [patient.id],
+  }),
+}));
+
+export const patientConsentRelations = relations(patientConsent, ({ one }) => ({
+  patient: one(patient, {
+    fields: [patientConsent.patientId],
+    references: [patient.id],
   }),
 }));

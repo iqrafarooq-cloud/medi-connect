@@ -5,10 +5,10 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* MediConnect — single light theme */
+/* MediConnect — Calm Humanist Clinical (light) */
 :root {
   --radius: 0.625rem;
-  --background: #f0fcf7;
+  --background: #ffffff;
   --foreground: #131e1b;
   --card: #ffffff;
   --card-foreground: #131e1b;
@@ -16,30 +16,32 @@
   --popover-foreground: #131e1b;
   --primary: #0e6251;
   --primary-foreground: #ffffff;
-  --secondary: #e5f1eb;
-  --secondary-foreground: #00493b;
-  --muted: #e5f1eb;
-  --muted-foreground: #3f4945;
-  --accent: #d8f3ea;
-  --accent-foreground: #00493b;
+  --secondary: #e8f0f1;
+  --secondary-foreground: #2a5458;
+  --muted: #f4f6f5;
+  --muted-foreground: #5a6561;
+  --accent: #eef6f3;
+  --accent-foreground: #0e6251;
   --destructive: #ba1a1a;
   --destructive-foreground: #ffffff;
-  --border: #c5d4cd;
-  --input: #c5d4cd;
+  --border: #dfe5e2;
+  --input: #dfe5e2;
   --ring: #0e6251;
   --chart-1: #0e6251;
-  --chart-2: #2c676c;
-  --chart-3: #005b8b;
+  --chart-2: #4e878c;
+  --chart-3: #0284c7;
   --chart-4: #8bd5bf;
   --chart-5: #97d0d6;
-  --sidebar: #ebf6f1;
+  --sidebar: #ffffff;
   --sidebar-foreground: #131e1b;
   --sidebar-primary: #0e6251;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e5f1eb;
-  --sidebar-accent-foreground: #00493b;
-  --sidebar-border: #c5d4cd;
+  --sidebar-accent: #f4f7f6;
+  --sidebar-accent-foreground: #0e6251;
+  --sidebar-border: #e8ecea;
   --sidebar-ring: #0e6251;
+  --info: #0284c7;
+  --info-foreground: #ffffff;
 }
 
 @theme inline {
@@ -77,6 +79,8 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -95,5 +99,27 @@
   h3,
   h4 {
     font-family: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a[href],
+  summary,
+  label[for],
+  input[type="button"]:not(:disabled),
+  input[type="submit"]:not(:disabled),
+  input[type="reset"]:not(:disabled),
+  input[type="file"]:not(:disabled),
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  input:disabled,
+  select:disabled {
+    cursor: not-allowed;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 22%, transparent);
+    color: var(--foreground);
   }
 }

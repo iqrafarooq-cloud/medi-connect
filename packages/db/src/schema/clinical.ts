@@ -92,9 +92,9 @@ export const extractedLab = pgTable(
   "extracted_lab",
   {
     id: text("id").primaryKey(),
-    documentId: text("document_id")
-      .notNull()
-      .references(() => clinicalDocument.id, { onDelete: "cascade" }),
+    documentId: text("document_id").references(() => clinicalDocument.id, {
+      onDelete: "cascade",
+    }),
     patientId: text("patient_id").notNull(),
     testName: text("test_name").notNull(),
     value: real("value").notNull(),
@@ -103,6 +103,8 @@ export const extractedLab = pgTable(
     refRangeHigh: real("ref_range_high"),
     flag: text("flag"),
     observedAt: timestamp("observed_at").notNull(),
+    /** document = AI ingest; manual = staff-entered on patient record */
+    entrySource: text("entry_source").notNull().default("document"),
   },
   (table) => [
     index("extracted_lab_patient_test_idx").on(
