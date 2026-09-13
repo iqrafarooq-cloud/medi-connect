@@ -147,7 +147,7 @@ export type LabRow = {
   value: number;
   unit: string | null;
   observedAt: Date;
-  documentId: string;
+  documentId: string | null;
 };
 
 export type TimelineKind = "diagnosis" | "medication" | "lab" | "imaging" | "surgery" | "document";
@@ -317,6 +317,7 @@ export function assembleHealthSummary(input: {
   }
 
   for (const row of input.labs) {
+    if (!row.documentId) continue;
     timeline.push({
       id: `lab:${row.id}`,
       kind: "lab",

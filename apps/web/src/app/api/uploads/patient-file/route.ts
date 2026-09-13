@@ -126,9 +126,7 @@ export async function POST(request: Request) {
           ? "imaging"
           : category === "home_monitoring"
             ? "home-monitoring"
-            : category === "other"
-              ? "other"
-              : "reports";
+            : "reports";
 
   const bucket = patientBucket();
   const path = `patients/${patientId}/${folder}/${crypto.randomUUID()}-${safeFileName(file.name)}`;
