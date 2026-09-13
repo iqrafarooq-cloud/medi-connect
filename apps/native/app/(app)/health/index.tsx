@@ -56,6 +56,8 @@ export default function HealthHubScreen() {
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 96 }}
           keyboardShouldPersistTaps="handled"
           contentInsetAdjustmentBehavior="never"
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
         >
           <View className="px-4 pt-1">
             <HealthSummaryCard

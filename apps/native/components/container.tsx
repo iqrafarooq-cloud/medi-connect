@@ -26,6 +26,8 @@ export function Container({
           keyboardShouldPersistTaps="handled"
           contentInsetAdjustmentBehavior="never"
           {...scrollViewProps}
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
         >
           {children}
         </ScrollView>

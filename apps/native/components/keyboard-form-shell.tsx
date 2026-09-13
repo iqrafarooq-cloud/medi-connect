@@ -53,6 +53,8 @@ export function KeyboardFormShell({ children, footer, onBack, title }: Props) {
         }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
         bottomOffset={28}
         extraKeyboardSpace={16}
       >

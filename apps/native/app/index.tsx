@@ -36,6 +36,7 @@ export default function WelcomeScreen() {
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 16, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
       >
         <View className="items-center mb-6">
           <BrandMark size={72} />

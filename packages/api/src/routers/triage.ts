@@ -14,9 +14,11 @@ import { z } from "zod";
 import { protectedProcedure } from "../index";
 import { CLINIC_STATUS } from "../lib/clinic-verification";
 import {
+  blockedQueueMessage,
   complaintForQueue,
   esiFromRemedySeverity,
   joinQueueDecision,
+  leaveQueueDecision,
   type RemedySeverity,
 } from "../lib/health-remedy";
 import { requireSessionPatient } from "../lib/require-patient";
@@ -308,11 +310,15 @@ export const triageRouter = {
       await ensureDefaultBays(facility.id);
 
       const active = await db
-        .select({ id: triageCase.id })
+        .select({
+          id: triageCase.id,
+          clinicId: triageCase.clinicId,
+          clinicName: clinic.name,
+        })
         .from(triageCase)
+        .innerJoin(clinic, eq(triageCase.clinicId, clinic.id))
         .where(
           and(
-            eq(triageCase.clinicId, facility.id),
             eq(triageCase.patientId, profile.id),
             inArray(triageCase.status, [...ACTIVE_CASE_STATUSES]),
           ),
@@ -339,7 +345,14 @@ export const triageRouter = {
       const ageYears = ageFromDob(profile.dateOfBirth);
       const gender = profile.gender;
       const bloodType = profile.bloodType;
-      const decision = joinQueueDecision(active[0] ?? null);
+      const decision = joinQueueDecision({
+        targetClinicId: facility.id,
+        active: active[0] ?? null,
+      });
+
+      if (decision.action === "blocked") {
+        throw new ORPCError("CONFLICT", { message: blockedQueueMessage(decision.clinicName) });
+      }
 
       if (decision.action === "update") {
         const [updated] = await db
@@ -423,6 +436,46 @@ export const triageRouter = {
       ...row,
       etaAt: row.etaAt.toISOString(),
     };
+  }),
+
+  leaveQueue: protectedProcedure.handler(async ({ context }) => {
+    const profile = await requireSessionPatient(context.session.user.id);
+    const db = createDb();
+    const rows = await db
+      .select({
+        id: triageCase.id,
+        clinicId: triageCase.clinicId,
+        bayId: triageCase.bayId,
+        clinicName: clinic.name,
+      })
+      .from(triageCase)
+      .innerJoin(clinic, eq(triageCase.clinicId, clinic.id))
+      .where(
+        and(
+          eq(triageCase.patientId, profile.id),
+          inArray(triageCase.status, [...ACTIVE_CASE_STATUSES]),
+        ),
+      )
+      .limit(1);
+    const existing = rows[0];
+    const decision = leaveQueueDecision(existing ?? null);
+    if (decision.action === "none" || !existing) {
+      return { left: false as const };
+    }
+
+    await db
+      .update(triageCase)
+      .set({ status: "cancelled", bayId: null })
+      .where(and(eq(triageCase.id, decision.caseId), eq(triageCase.patientId, profile.id)));
+
+    if (existing.bayId) {
+      await db
+        .update(triageBay)
+        .set({ status: "turnover", detail: "Turnover" })
+        .where(and(eq(triageBay.id, existing.bayId), eq(triageBay.clinicId, existing.clinicId)));
+    }
+
+    return { left: true as const, clinicName: existing.clinicName };
   }),
 
   updateCase: protectedProcedure

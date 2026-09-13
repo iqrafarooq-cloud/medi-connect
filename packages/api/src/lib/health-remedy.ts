@@ -432,11 +432,37 @@ export function complaintForQueue(input: { complaint?: string | null } | null): 
   return label ?? "On the way";
 }
 
-export function joinQueueDecision(
-  existingActive: { id: string } | null,
-): { action: "insert" } | { action: "update"; caseId: string } {
-  if (existingActive) return { action: "update", caseId: existingActive.id };
-  return { action: "insert" };
+export type ActiveQueueCase = {
+  id: string;
+  clinicId: string;
+  clinicName: string;
+};
+
+export type JoinQueueDecision =
+  | { action: "insert" }
+  | { action: "update"; caseId: string }
+  | { action: "blocked"; clinicName: string };
+
+export function joinQueueDecision(input: {
+  targetClinicId: string;
+  active: ActiveQueueCase | null;
+}): JoinQueueDecision {
+  if (!input.active) return { action: "insert" };
+  if (input.active.clinicId === input.targetClinicId) {
+    return { action: "update", caseId: input.active.id };
+  }
+  return { action: "blocked", clinicName: input.active.clinicName };
+}
+
+export function blockedQueueMessage(clinicName: string): string {
+  return `You're already in the queue at ${clinicName}. Leave that queue first.`;
+}
+
+export function leaveQueueDecision(
+  active: { id: string } | null,
+): { action: "cancel"; caseId: string } | { action: "none" } {
+  if (!active) return { action: "none" };
+  return { action: "cancel", caseId: active.id };
 }
 
 export function assembleRemedyHub(input: {

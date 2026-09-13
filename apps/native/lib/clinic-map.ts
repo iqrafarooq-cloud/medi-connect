@@ -39,6 +39,15 @@ export function formatQueueStatus(clinicName: string): string {
   return `You're in the queue at ${clinicName}`;
 }
 
+export function clinicQueueButton(
+  clinicId: string,
+  queuedClinicId: string | null,
+): "join" | "here" | "blocked" {
+  if (!queuedClinicId) return "join";
+  if (queuedClinicId === clinicId) return "here";
+  return "blocked";
+}
+
 export function minutesUntilEta(etaAt: Date, now = new Date()): number {
   return Math.max(0, Math.round((etaAt.getTime() - now.getTime()) / 60_000));
 }

@@ -6,8 +6,10 @@ import {
   esiFromRemedySeverity,
   clampEtaMinutes,
   etaMinutesFromKm,
+  blockedQueueMessage,
   filterEnrolledClinics,
   joinQueueDecision,
+  leaveQueueDecision,
 } from "./health-remedy.ts";
 
 const seaview = {
@@ -92,11 +94,43 @@ describe("complaintForQueue", () => {
 });
 
 describe("joinQueueDecision", () => {
-  it("updates an existing active case instead of inserting a duplicate", () => {
-    assert.deepEqual(joinQueueDecision({ id: "case-1" }), { action: "update", caseId: "case-1" });
+  it("updates an existing active case at the same clinic", () => {
+    assert.deepEqual(
+      joinQueueDecision({
+        targetClinicId: "karachi",
+        active: { id: "case-1", clinicId: "karachi", clinicName: "Seaview Clinic" },
+      }),
+      { action: "update", caseId: "case-1" },
+    );
   });
 
-  it("inserts when the patient has no active case at that clinic", () => {
-    assert.deepEqual(joinQueueDecision(null), { action: "insert" });
+  it("inserts when the patient has no active case", () => {
+    assert.deepEqual(joinQueueDecision({ targetClinicId: "karachi", active: null }), {
+      action: "insert",
+    });
+  });
+
+  it("blocks joining a second clinic while already queued", () => {
+    assert.deepEqual(
+      joinQueueDecision({
+        targetClinicId: "lahore",
+        active: { id: "case-1", clinicId: "karachi", clinicName: "Seaview Clinic" },
+      }),
+      { action: "blocked", clinicName: "Seaview Clinic" },
+    );
+    assert.equal(
+      blockedQueueMessage("Seaview Clinic"),
+      "You're already in the queue at Seaview Clinic. Leave that queue first.",
+    );
+  });
+});
+
+describe("leaveQueueDecision", () => {
+  it("cancels the active case when the patient is queued", () => {
+    assert.deepEqual(leaveQueueDecision({ id: "case-1" }), { action: "cancel", caseId: "case-1" });
+  });
+
+  it("does nothing when the patient is not in a queue", () => {
+    assert.deepEqual(leaveQueueDecision(null), { action: "none" });
   });
 });

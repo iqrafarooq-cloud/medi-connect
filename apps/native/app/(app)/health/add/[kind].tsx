@@ -146,27 +146,9 @@ export default function AddFactScreen() {
         </PrimaryButton>
       }
     >
-      <View>
-        <TextField>
-          <Label>{kind === "allergy" ? "Substance" : "Name"}</Label>
-          <Input value={name} onChangeText={setName} autoCapitalize="sentences" />
-        </TextField>
-      </View>
-
-      {kind !== "allergy" ? (
-        <View className="mt-4">
-          <Segment
-            value={status}
-            options={[
-              { value: "current", label: "Current" },
-              { value: "previous", label: "Previous" },
-            ]}
-            onChange={(value) => setStatus(value as "current" | "previous")}
-          />
-        </View>
-      ) : (
+      {kind === "allergy" ? (
         <>
-          <Text className="mt-5 mb-2 text-sm font-medium text-foreground">Type</Text>
+          <Text className="mb-2 text-sm font-medium text-foreground">Type</Text>
           <ChipRow>
             {(["medication", "food", "other"] as const).map((item) => (
               <Chip
@@ -189,7 +171,33 @@ export default function AddFactScreen() {
             ))}
           </ChipRow>
         </>
+      ) : (
+        <View className="mt-4">
+          <Segment
+            value={status}
+            options={[
+              { value: "current", label: "Current" },
+              { value: "previous", label: "Previous" },
+            ]}
+            onChange={(value) => setStatus(value as "current" | "previous")}
+          />
+        </View>
       )}
+
+      {kind !== "allergy" ? (
+        <DateField
+          label={kind === "medication" ? "Start date" : kind === "surgery" ? "Date" : "Date"}
+          value={date}
+          onChange={setDate}
+        />
+      ) : null}
+
+      <View className={kind === "allergy" ? "mt-5" : "mt-4"}>
+        <TextField>
+          <Label>{kind === "allergy" ? "Substance" : "Name"}</Label>
+          <Input value={name} onChangeText={setName} autoCapitalize="sentences" />
+        </TextField>
+      </View>
 
       {kind === "medication" ? (
         <>
@@ -215,14 +223,6 @@ export default function AddFactScreen() {
             <Input value={facility} onChangeText={setFacility} />
           </TextField>
         </View>
-      ) : null}
-
-      {kind !== "allergy" ? (
-        <DateField
-          label={kind === "medication" ? "Start date" : kind === "surgery" ? "Date" : "Date"}
-          value={date}
-          onChange={setDate}
-        />
       ) : null}
 
       <View className="mt-4">
