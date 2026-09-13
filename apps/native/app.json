@@ -40,7 +40,17 @@
           }
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow MediConnect to attach photos of medical records.",
+          "cameraPermission": "Allow MediConnect to photograph medical records."
+        }
+      ],
+      "expo-document-picker",
+      "expo-file-system",
+      "react-native-webview"
     ],
     "experiments": {
       "typedRoutes": true,

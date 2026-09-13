@@ -14,6 +14,7 @@
   },
   "scripts": {},
   "dependencies": {
+    "@medi-connect/ai": "workspace:*",
     "@medi-connect/auth": "workspace:*",
     "@medi-connect/db": "workspace:*",
     "@medi-connect/env": "workspace:*",

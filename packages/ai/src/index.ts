@@ -28,4 +28,5 @@ export {
   searchPatientRecords,
 } from "./tools";
 export { ingestDocumentById, ingestDocumentFromBuffer } from "./ingest/pipeline";
+export { generateRemedySuggestions } from "./remedy";
 export { getChatModel, getEmbeddingModel, getVertex } from "./vertex";

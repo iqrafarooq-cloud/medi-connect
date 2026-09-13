@@ -2,7 +2,6 @@ import { formatCnic, formatPakistanPhone } from "@/lib/pakistan";
 import { useQuery } from "@tanstack/react-query";
 import { Button, Spinner } from "heroui-native";
 import { Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Container } from "@/components/container";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -37,7 +36,6 @@ function Detail({ label, value, isLast }: { label: string; value: string; isLast
 }
 
 export default function ProfileScreen() {
-  const insets = useSafeAreaInsets();
   const { data: session } = authClient.useSession();
   const me = useQuery({
     ...orpc.patient.me.queryOptions(),
@@ -50,11 +48,11 @@ export default function ProfileScreen() {
   }
 
   return (
-    <Container className="px-6">
-      <View style={{ paddingTop: insets.top + 12 }} className="flex-row items-start justify-between">
-        <View className="flex-1 pr-4">
-          <Text className="font-bold text-3xl text-foreground tracking-tight">Your details</Text>
-        </View>
+    <Container className="px-4">
+      <View className="mb-4 flex-row items-start justify-between">
+        <Text className="flex-1 pr-4 font-bold text-2xl text-foreground tracking-tight">
+          Your details
+        </Text>
         <ThemeToggle />
       </View>
 
@@ -63,7 +61,7 @@ export default function ProfileScreen() {
           <Spinner size="sm" />
         </View>
       ) : me.data ? (
-        <View className="mt-6 rounded-2xl border border-border bg-surface px-4">
+        <View className="rounded-2xl border border-border bg-surface px-4">
           <Detail label="Name" value={me.data.fullName} />
           <Detail label="Email" value={me.data.email} />
           <Detail label="Mobile" value={me.data.phone ? formatPakistanPhone(me.data.phone) : "—"} />

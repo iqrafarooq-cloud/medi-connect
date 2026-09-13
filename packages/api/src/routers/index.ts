@@ -4,6 +4,7 @@ import { protectedProcedure, publicProcedure } from "../index";
 import { adminRouter } from "./admin";
 import { clinicRouter } from "./clinic";
 import { clinicalRouter } from "./clinical";
+import { healthRouter } from "./health";
 import { patientRouter } from "./patient";
 import { patientRecordRouter } from "./patient-record";
 import { triageRouter } from "./triage";
@@ -23,6 +24,7 @@ export const appRouter = {
   patient: patientRouter,
   patientRecord: patientRecordRouter,
   clinical: clinicalRouter,
+  health: healthRouter,
   triage: triageRouter,
 };
 export type AppRouter = typeof appRouter;
