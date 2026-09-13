@@ -36,7 +36,7 @@ Pakistan clinic/hospital facilities. Portal is authenticated (Better Auth). Live
 ## Brand Commitments
 
 - Product name: MediConnect
-- Incumbent visual system in the portal: Stitch “Calm Humanist Clinical” (teal `#0e6251`, mint surfaces, Plus Jakarta Sans + Inter) — preserve for this surface redesign unless a later rebrand request replaces it.
+- Incumbent visual system in the portal: “Calm Humanist Clinical” (primary `#0e6251`, white canvas, secondary `#4e878c`, tertiary `#0284c7`, Plus Jakarta Sans + Inter).
 - Source vision: Healthcare Triage & Management PRD (`Healthcare_Triage_Management_PRD.pdf`) and clinic portal design spec.
 
 ## Evidence on Hand

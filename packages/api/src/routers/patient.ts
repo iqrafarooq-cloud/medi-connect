@@ -148,6 +148,14 @@ export const patientRouter = {
       if (cnic) {
         return db.select().from(patient).where(eq(patient.cnic, cnic)).limit(20);
       }
+      const digits = q.replace(/\D/g, "");
+      if (digits.length >= 3) {
+        return db
+          .select()
+          .from(patient)
+          .where(or(ilike(patient.fullName, `%${q}%`), ilike(patient.cnic, `%${digits}%`)))
+          .limit(20);
+      }
       return db
         .select()
         .from(patient)
@@ -176,9 +184,18 @@ export const patientRouter = {
       let whereClause: SQL | undefined;
       if (q) {
         const cnic = normalizeCnic(q);
-        whereClause = cnic
-          ? eq(patient.cnic, cnic)
-          : or(ilike(patient.fullName, `%${q}%`), ilike(patient.cnic, `%${q.replace(/\D/g, "")}%`));
+        const digits = q.replace(/\D/g, "");
+        if (cnic) {
+          whereClause = eq(patient.cnic, cnic);
+        } else if (digits.length >= 3) {
+          // Partial CNIC / digit query — avoid bare "%%" which matches every row
+          whereClause = or(
+            ilike(patient.fullName, `%${q}%`),
+            ilike(patient.cnic, `%${digits}%`),
+          );
+        } else {
+          whereClause = ilike(patient.fullName, `%${q}%`);
+        }
       }
 
       const countRows = await db.select({ value: count() }).from(patient).where(whereClause);

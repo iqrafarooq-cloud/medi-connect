@@ -1,18 +1,24 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import {
   Activity,
   Bot,
   Menu,
-  UserPlus,
   Users,
-  X,
 } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@medi-connect/ui/components/button";
+import { Separator } from "@medi-connect/ui/components/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@medi-connect/ui/components/sheet";
 import { cn } from "@medi-connect/ui/lib/utils";
 
 import UserMenu from "@/components/user-menu";
@@ -20,9 +26,19 @@ import UserMenu from "@/components/user-menu";
 const nav = [
   { href: "/emergency-triage", label: "Emergency Triage", icon: Activity },
   { href: "/patients", label: "Patients", icon: Users },
-  { href: "/patients/new", label: "Register patient", icon: UserPlus },
   { href: "/assistant", label: "AI Assistant", icon: Bot },
 ] as const;
+
+function navIsActive(pathname: string, href: (typeof nav)[number]["href"]) {
+  if (href === "/emergency-triage") return pathname === href;
+  if (href === "/patients") {
+    return (
+      pathname === "/patients" ||
+      (pathname.startsWith("/patients/") && !pathname.startsWith("/patients/new"))
+    );
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function PortalShell({
   children,
@@ -35,30 +51,23 @@ export function PortalShell({
   const [open, setOpen] = useState(false);
 
   const NavLinks = ({ onNavigate }: { onNavigate?: () => void }) => (
-    <nav className="flex flex-col gap-1.5 p-4">
+    <nav className="flex flex-col gap-1 p-3">
       {nav.map(({ href, label, icon: Icon }) => {
-        const active =
-          pathname === href ||
-          (href !== "/emergency-triage" && pathname.startsWith(href) && href !== "/patients/new");
-        const isExactPatients = href === "/patients" && pathname === "/patients";
-        const isActive =
-          href === "/patients"
-            ? isExactPatients || pathname.startsWith("/patients/") && !pathname.startsWith("/patients/new")
-            : active;
+        const isActive = navIsActive(pathname, href);
         return (
           <Link
             key={href}
-            href={href}
+            href={href as Route}
             onClick={onNavigate}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
               isActive
-                ? "bg-primary text-primary-foreground"
-                : "text-foreground/80 hover:bg-accent hover:text-accent-foreground",
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-foreground/85 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
             )}
           >
             <Icon className="size-4 shrink-0" />
-            {label}
+            <span className="min-w-0 flex-1">{label}</span>
           </Link>
         );
       })}
@@ -67,47 +76,50 @@ export function PortalShell({
 
   return (
     <div className="flex h-svh overflow-hidden bg-background">
-      <aside className="hidden h-full w-64 shrink-0 flex-col border-r border-border bg-sidebar lg:flex">
-        <div className="flex flex-col gap-1 border-b border-sidebar-border px-5 py-6">
-          <Link href="/emergency-triage" className="font-heading text-xl font-bold tracking-tight text-primary">
+      <aside className="hidden h-full w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
+        <div className="flex flex-col gap-2 px-5 py-6">
+          <Link
+            href={"/emergency-triage" as Route}
+            className="font-heading text-xl font-bold tracking-tight text-primary"
+          >
             MediConnect
           </Link>
-          <p className="text-xs text-muted-foreground">
-            {clinicName || "Clinical care portal"}
-          </p>
+          {clinicName ? (
+            <p className="text-sm font-medium leading-snug text-foreground">{clinicName}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">Clinical care portal</p>
+          )}
         </div>
+        <Separator className="bg-sidebar-border" />
         <div className="min-h-0 flex-1 overflow-y-auto">
           <NavLinks />
         </div>
+        <div className="border-t border-sidebar-border px-5 py-4">
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Pre-arrival triage and global patient registry for Pakistan facilities.
+          </p>
+        </div>
       </aside>
 
-      {open ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            type="button"
-            className="absolute inset-0 bg-foreground/40"
-            aria-label="Close menu"
-            onClick={() => setOpen(false)}
-          />
-          <aside className="relative z-10 flex h-full w-72 flex-col bg-sidebar shadow-xl">
-            <div className="flex items-center justify-between border-b border-sidebar-border px-4 py-4">
-              <span className="font-heading text-lg font-bold text-primary">MediConnect</span>
-              <Button variant="ghost" size="icon" onClick={() => setOpen(false)}>
-                <X className="size-5" />
-              </Button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <NavLinks onNavigate={() => setOpen(false)} />
-            </div>
-          </aside>
-        </div>
-      ) : null}
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="left" className="w-72 border-sidebar-border bg-sidebar p-0">
+          <SheetHeader className="border-b border-sidebar-border px-5 py-5 text-left">
+            <SheetTitle className="font-heading text-lg font-bold text-primary">
+              MediConnect
+            </SheetTitle>
+            {clinicName ? (
+              <p className="text-sm text-muted-foreground">{clinicName}</p>
+            ) : null}
+          </SheetHeader>
+          <NavLinks onNavigate={() => setOpen(false)} />
+        </SheetContent>
+      </Sheet>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-2">
             <Button
-              variant="ghost"
+              variant="outline"
               size="icon"
               className="lg:hidden"
               onClick={() => setOpen(true)}
@@ -115,15 +127,15 @@ export function PortalShell({
             >
               <Menu className="size-5" />
             </Button>
-            <div className="lg:hidden">
-              <p className="font-heading text-base font-semibold text-primary">MediConnect</p>
+            <div className="min-w-0 lg:hidden">
+              <p className="truncate font-heading text-base font-semibold text-primary">
+                MediConnect
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <UserMenu />
-          </div>
+          <UserMenu />
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-5 lg:px-5 lg:py-5">
+        <main className="min-h-0 flex-1 overflow-y-auto bg-background px-3 py-4 sm:px-5 sm:py-6 lg:px-8 lg:py-7">
           {children}
         </main>
       </div>

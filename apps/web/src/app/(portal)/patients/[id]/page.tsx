@@ -21,6 +21,7 @@ import {
 import { Badge } from "@medi-connect/ui/components/badge";
 import { Button } from "@medi-connect/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@medi-connect/ui/components/card";
+import { DateTimePicker } from "@medi-connect/ui/components/date-picker";
 import { Input } from "@medi-connect/ui/components/input";
 import { Label } from "@medi-connect/ui/components/label";
 import { Progress } from "@medi-connect/ui/components/progress";
@@ -35,6 +36,11 @@ import {
 } from "@medi-connect/ui/components/sheet";
 import { Textarea } from "@medi-connect/ui/components/textarea";
 import { cn } from "@medi-connect/ui/lib/utils";
+
+import {
+  PortalButtonSpinner,
+  PortalPatientRecordSkeleton,
+} from "@/components/portal/portal-loading";
 
 import { client } from "@/utils/orpc";
 
@@ -435,7 +441,7 @@ export default function PatientRecordPage() {
 
   const filtersActive = kind !== "all" || year !== "all" || query.trim().length > 0;
   const age = patient ? ageFromDob(patient.dateOfBirth) : null;
-  const name = patient?.fullName ?? (loading ? "Loading patient…" : "Patient");
+  const name = patient?.fullName ?? "Patient";
 
   const troponin = findSeries(labSeries, ["troponin", "hs-ctni", "ctni"]);
   const egfr = findSeries(labSeries, ["egfr", "gfr"]);
@@ -688,6 +694,10 @@ export default function PatientRecordPage() {
   }
 
   const manualLabs = labs.filter((l) => l.entrySource === "manual");
+
+  if (loading && !patient) {
+    return <PortalPatientRecordSkeleton />;
+  }
 
   return (
     <div className="flex w-full max-w-none flex-col gap-3 animate-in fade-in duration-500 lg:gap-3.5">
@@ -1327,10 +1337,10 @@ export default function PatientRecordPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Occurred at</Label>
-              <Input
-                type="datetime-local"
+              <DateTimePicker
                 value={encounterForm.occurredAt}
-                onChange={(e) => setEncounterForm((f) => ({ ...f, occurredAt: e.target.value }))}
+                onChange={(occurredAt) => setEncounterForm((f) => ({ ...f, occurredAt }))}
+                placeholder="Select date & time"
               />
             </div>
             <div className="space-y-1.5">
@@ -1412,7 +1422,13 @@ export default function PatientRecordPage() {
             <Button variant="outline" type="button" onClick={() => setEncounterOpen(false)}>
               Cancel
             </Button>
-            <Button type="button" disabled={saving} onClick={() => void saveEncounter()}>
+            <Button
+              type="button"
+              className="gap-2"
+              disabled={saving}
+              onClick={() => void saveEncounter()}
+            >
+              {saving ? <PortalButtonSpinner /> : null}
               {saving ? "Saving…" : editingEncounterId ? "Save changes" : "Add encounter"}
             </Button>
           </SheetFooter>
@@ -1456,7 +1472,8 @@ export default function PatientRecordPage() {
             <Button variant="outline" type="button" onClick={() => setFlagOpen(false)}>
               Cancel
             </Button>
-            <Button type="button" disabled={saving} onClick={() => void saveFlag()}>
+            <Button type="button" className="gap-2" disabled={saving} onClick={() => void saveFlag()}>
+              {saving ? <PortalButtonSpinner /> : null}
               {saving ? "Saving…" : editingFlagId ? "Save changes" : "Add flag"}
             </Button>
           </SheetFooter>
@@ -1509,10 +1526,10 @@ export default function PatientRecordPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Observed at</Label>
-              <Input
-                type="datetime-local"
+              <DateTimePicker
                 value={labForm.observedAt}
-                onChange={(e) => setLabForm((f) => ({ ...f, observedAt: e.target.value }))}
+                onChange={(observedAt) => setLabForm((f) => ({ ...f, observedAt }))}
+                placeholder="Select date & time"
               />
             </div>
           </div>
@@ -1520,7 +1537,8 @@ export default function PatientRecordPage() {
             <Button variant="outline" type="button" onClick={() => setLabOpen(false)}>
               Cancel
             </Button>
-            <Button type="button" disabled={saving} onClick={() => void saveLab()}>
+            <Button type="button" className="gap-2" disabled={saving} onClick={() => void saveLab()}>
+              {saving ? <PortalButtonSpinner /> : null}
               {saving ? "Saving…" : editingLabId ? "Save changes" : "Add lab"}
             </Button>
           </SheetFooter>

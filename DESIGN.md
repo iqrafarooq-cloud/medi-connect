@@ -4,18 +4,20 @@ description: Calm Humanist Clinical portal for clinic pre-arrival and patient in
 colors:
   primary: "#0e6251"
   primary-foreground: "#ffffff"
-  background: "#f0fcf7"
+  background: "#ffffff"
   foreground: "#131e1b"
   card: "#ffffff"
-  muted: "#e5f1eb"
-  muted-foreground: "#3f4945"
-  accent: "#d8f3ea"
-  accent-foreground: "#00493b"
-  secondary: "#e5f1eb"
-  secondary-foreground: "#00493b"
+  muted: "#f4f6f5"
+  muted-foreground: "#5a6561"
+  accent: "#eef6f3"
+  accent-foreground: "#0e6251"
+  secondary: "#e8f0f1"
+  secondary-foreground: "#2a5458"
+  secondary-brand: "#4e878c"
+  tertiary: "#0284c7"
   destructive: "#ba1a1a"
-  border: "#c5d4cd"
-  sidebar: "#ebf6f1"
+  border: "#dfe5e2"
+  sidebar: "#ffffff"
   esi-1: "#ba1a1a"
   esi-2: "#c45c26"
   esi-3: "#a67c00"
@@ -62,47 +64,33 @@ components:
 
 ## Overview
 
-Single light theme clinical portal. Brand expression is restrained teal on mint; urgency color is reserved for true ESI-1 / destructive moments. Operate surfaces prioritize scanability under time pressure.
+Single light theme clinical portal on a **white** canvas. Brand expression is restrained forest teal; secondary slate-teal and tertiary clinical blue support wayfinding and info—not decoration. Urgency color is reserved for true ESI-1 / destructive moments.
 
 ## Colors
 
-- **Primary teal** (`#0e6251`) for brand, primary actions, and available/success states.
-- **Mint background** (`#f0fcf7`) and sidebar (`#ebf6f1`) as calm work surfaces.
-- **White cards** for interactive work regions.
+- **Primary teal** (`#0e6251`) for brand, primary actions, and ESI-4 / available states.
+- **White background** (`#ffffff`) for the main work surface; cards match the canvas with border-defined edges.
+- **Secondary brand** (`#4e878c`) for charts, bay-in-care indicators, and muted clinical accents.
+- **Tertiary blue** (`#0284c7`) for informational emphasis (AI assistant, links, chart-3).
+- **Neutral** (`#5a6561`) for secondary text and calm borders.
 - **Destructive / ESI 1** (`#ba1a1a`) only for critical inbound and fail states.
-- ESI 2–4 use warm orange, gold, and primary teal respectively — never decorative accents outside severity meaning.
 
 ## Typography
 
 - Headings: Plus Jakarta Sans, semibold, slight negative tracking.
 - Body/UI: Inter.
 - ETAs and vitals use tabular numerals.
-- No display serifs or costume mono for clinical UI.
 
 ## Layout
 
-- Portal shell: fixed viewport height; left nav pinned; `main` scrolls.
-- Live feed (`/dashboard`): Split Attention Board — critical stage owns the first band; inbound queue and bay ops share equal lower rails.
-- Dense Operate density; group by proximity before wrapping every block in a card.
-- Desktop-first dual rail; stack on narrow viewports.
-
-## Elevation & Depth
-
-- Prefer 1px border + soft soft shadow on interactive surfaces.
-- Critical stage is a full-bleed color field, not a floating card.
-- No zero-offset glow halos; no hard offset neo-brutal shadows.
-
-## Shapes
-
-- Radius ~10–12px on panels (`0.625rem` system radius).
-- Small controls may be slightly tighter; avoid pill shapes for large containers.
+- Portal shell: fixed viewport height; white sidebar with border; `main` scrolls on white.
+- Live feed: critical stage owns the first band; KPI cards summarize inbound/bays; queue and bay ops below.
+- Desktop-first; stack on narrow viewports.
 
 ## Components
 
-- Shared shadcn primitives from `@medi-connect/ui`.
-- Live feed queue rows expand selected patient’s vitals inline rather than nesting card-in-card.
-- Bay tiles are flat bordered cells with status dots.
-- Disabled secondary actions remain visible as stubs until backends exist.
+- Shared shadcn primitives from `@medi-connect/ui` (Button, Card, Table, Sheet, Avatar, etc.).
+- Mobile nav uses Sheet; desktop uses bordered sidebar.
 
 ## Do's and Don'ts
 
@@ -110,11 +98,9 @@ Single light theme clinical portal. Brand expression is restrained teal on mint;
 
 - Label synthetic telemetry and AI insights as stubs.
 - Put the next clinical decision in the first viewport.
-- Keep MediConnect teal identity on Operate surfaces.
+- Keep severity color meaningful.
 
 **Don't**
 
-- Invent live WebSocket or FHIR claims.
-- Use eyebrow/kicker labels above headings.
-- Scatter equal-weight cards that erase priority hierarchy.
-- Treat red as a general accent outside critical/ESI 1.
+- Reintroduce mint page washes behind Operate surfaces.
+- Use red or blue as generic decoration outside their roles.

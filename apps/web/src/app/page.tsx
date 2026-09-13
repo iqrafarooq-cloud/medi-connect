@@ -6,7 +6,7 @@ export default function Home() {
   return (
     <div className="relative min-h-svh overflow-hidden bg-background">
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_0%_0%,_var(--accent)_0%,_transparent_55%),radial-gradient(ellipse_70%_50%_at_100%_100%,_var(--secondary)_0%,_transparent_50%),radial-gradient(circle_at_70%_20%,_color-mix(in_oklab,var(--primary)_12%,transparent)_0%,_transparent_45%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_0%_0%,_color-mix(in_oklab,var(--primary)_8%,transparent)_0%,_transparent_55%),radial-gradient(ellipse_70%_50%_at_100%_100%,_color-mix(in_oklab,var(--chart-3)_6%,transparent)_0%,_transparent_50%)]"
         aria-hidden
       />
       <div
