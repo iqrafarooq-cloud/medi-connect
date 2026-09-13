@@ -53,6 +53,8 @@ export const env = createEnv({
     // Google Vertex AI (chat + embeddings)
     GOOGLE_VERTEX_PROJECT: z.string().min(1).optional(),
     GOOGLE_VERTEX_LOCATION: z.string().default("us-central1"),
+    // Prefer full SA JSON string on Vercel (no filesystem path).
+    GOOGLE_SERVICE_ACCOUNT_JSON: z.string().min(1).optional(),
     GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
     GOOGLE_CLIENT_EMAIL: z.string().email().optional(),
     GOOGLE_PRIVATE_KEY: z.string().optional(),
