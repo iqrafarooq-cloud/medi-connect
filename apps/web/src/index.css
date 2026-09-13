@@ -1,1 +1,93 @@
 @import "@medi-connect/ui/globals.css";
+
+@keyframes mc-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes mc-drift {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(1.25rem, -0.75rem);
+  }
+}
+
+::selection {
+  background: color-mix(in oklab, var(--primary) 22%, transparent);
+  color: var(--foreground);
+}
+
+/* Google Places Autocomplete dropdown (rendered on document.body) */
+.pac-container {
+  z-index: 10000;
+  margin-top: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  box-shadow: 0 8px 24px color-mix(in oklab, var(--foreground) 12%, transparent);
+  font-family: inherit;
+  overflow: hidden;
+}
+
+.pac-item {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+}
+
+.pac-item:hover,
+.pac-item-selected {
+  background: var(--accent);
+}
+
+/* PlaceAutocompleteElement — match facility form inputs (force light chrome) */
+gmp-place-autocomplete,
+gmp-place-autocomplete.mc-place-autocomplete {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  box-sizing: border-box;
+  color-scheme: light;
+  background-color: #ffffff;
+  border: 1px solid var(--input);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--foreground);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--foreground) 6%, transparent);
+  /* Do not clip the prediction dropdown */
+  overflow: visible;
+}
+
+gmp-place-autocomplete:focus-within {
+  border-color: var(--ring);
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ring) 35%, transparent);
+}
+
+gmp-place-autocomplete::part(input) {
+  color-scheme: light;
+  background-color: #ffffff;
+  color: var(--foreground);
+  font-family: inherit;
+  font-size: 0.875rem;
+}
+
+gmp-place-autocomplete::part(prediction-list) {
+  z-index: 10000;
+  color-scheme: light;
+  background-color: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px color-mix(in oklab, var(--foreground) 12%, transparent);
+}

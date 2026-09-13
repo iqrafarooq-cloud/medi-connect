@@ -2,20 +2,10 @@ import { createDb } from "@medi-connect/db";
 import { clinic } from "@medi-connect/db/schema/clinic";
 import { eq } from "drizzle-orm";
 import { ORPCError } from "@orpc/server";
-import { z } from "zod";
 
 import { protectedProcedure } from "../index";
+import { registerProfileInput } from "../lib/clinic-register";
 import { normalizePakistanPhone } from "../lib/pakistan";
-
-const registerProfileInput = z.object({
-  name: z.string().min(2),
-  type: z.enum(["clinic", "hospital"]),
-  address: z.string().min(3),
-  city: z.string().min(2),
-  ownerName: z.string().min(2),
-  phone: z.string().min(10),
-  licenseNumber: z.string().min(3),
-});
 
 export const clinicRouter = {
   me: protectedProcedure.handler(async ({ context }) => {
@@ -55,6 +45,8 @@ export const clinicRouter = {
           type: input.type,
           address: input.address,
           city: input.city,
+          latitude: input.latitude,
+          longitude: input.longitude,
           ownerName: input.ownerName,
           phone,
           licenseNumber: input.licenseNumber,
