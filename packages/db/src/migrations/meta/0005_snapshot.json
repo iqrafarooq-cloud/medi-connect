@@ -1,6 +1,6 @@
 {
-  "id": "e0a78303-a189-4aec-9399-6af1aae59aee",
-  "prevId": "40f18a12-8591-439d-ab1d-bbd7d1daa68f",
+  "id": "5b67280d-be18-4a30-b132-cc0b81d0b019",
+  "prevId": "e0a78303-a189-4aec-9399-6af1aae59aee",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -287,6 +287,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'clinic_owner'"
         },
         "created_at": {
           "name": "created_at",
@@ -1823,6 +1830,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_by_user_id": {
           "name": "created_by_user_id",
           "type": "text",
@@ -1833,7 +1846,7 @@
           "name": "created_by_clinic_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -1866,6 +1879,21 @@
           "method": "btree",
           "with": {}
         },
+        "patient_user_id_uidx": {
+          "name": "patient_user_id_uidx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "patient_full_name_idx": {
           "name": "patient_full_name_idx",
           "columns": [
@@ -1883,6 +1911,19 @@
         }
       },
       "foreignKeys": {
+        "patient_user_id_user_id_fk": {
+          "name": "patient_user_id_user_id_fk",
+          "tableFrom": "patient",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "patient_created_by_user_id_user_id_fk": {
           "name": "patient_created_by_user_id_user_id_fk",
           "tableFrom": "patient",

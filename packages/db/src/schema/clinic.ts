@@ -1,5 +1,13 @@
 import { relations } from "drizzle-orm";
-import { index, pgTable, text, timestamp, integer, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  doublePrecision,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 
@@ -14,6 +22,8 @@ export const clinic = pgTable(
     type: text("type").notNull(), // clinic | hospital
     address: text("address").notNull(),
     city: text("city").notNull(),
+    latitude: doublePrecision("latitude").notNull(),
+    longitude: doublePrecision("longitude").notNull(),
     ownerName: text("owner_name").notNull(),
     phone: text("phone").notNull(),
     licenseNumber: text("license_number").notNull(),
