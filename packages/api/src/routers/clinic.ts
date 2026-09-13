@@ -17,6 +17,8 @@ import {
 } from "../lib/clinic-verification";
 import { findClinicByOwner } from "../lib/require-clinic";
 import { normalizePakistanPhone } from "../lib/pakistan";
+import { listEnrolledClinics, filterEnrolledClinics } from "../lib/health-remedy";
+import { requireSessionPatient } from "../lib/require-patient";
 
 export const clinicRouter = {
   me: protectedProcedure.handler(async ({ context }) => {
@@ -109,5 +111,26 @@ export const clinicRouter = {
         .returning();
 
       return created;
+    }),
+
+  nearby: protectedProcedure
+    .input(
+      z
+        .object({
+          latitude: z.number().min(-90).max(90).optional(),
+          longitude: z.number().min(-180).max(180).optional(),
+          query: z.string().max(120).optional(),
+        })
+        .optional(),
+    )
+    .handler(async ({ context, input }) => {
+      await requireSessionPatient(context.session.user.id);
+      const db = createDb();
+      const rows = await db.select().from(clinic);
+      const origin =
+        input?.latitude != null && input?.longitude != null
+          ? { latitude: input.latitude, longitude: input.longitude }
+          : undefined;
+      return filterEnrolledClinics(listEnrolledClinics(rows, origin), input?.query ?? "");
     }),
 };

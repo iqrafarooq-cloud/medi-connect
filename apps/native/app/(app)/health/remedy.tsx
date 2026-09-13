@@ -10,7 +10,7 @@ import { useMemo, useRef, useState } from "react";
 import { Text, View } from "react-native";
 
 import { Chip, ChipRow } from "@/components/health/chips";
-import { RemedyClinicCard, RemedySuggestionList } from "@/components/health/remedy-cards";
+import { RemedySuggestionList } from "@/components/health/remedy-cards";
 import { KeyboardFormShell } from "@/components/keyboard-form-shell";
 import { PrimaryButton } from "@/components/primary-button";
 import { getRpcErrorMessage } from "@/lib/form-errors";
@@ -89,11 +89,14 @@ export default function RemedyScreen() {
     const mark = severityStyle(result.severity);
     return (
       <KeyboardFormShell
-        title="Remedial measure"
+        title="Feeling unwell"
         onBack={() => router.back()}
         footer={
-          <PrimaryButton size="lg" onPress={() => router.back()}>
-            <PrimaryButton.Label>Done</PrimaryButton.Label>
+          <PrimaryButton
+            size="lg"
+            onPress={() => router.replace({ pathname: "/(app)/clinic", params: { focus: "nearby" } })}
+          >
+            <PrimaryButton.Label>Find a clinic</PrimaryButton.Label>
           </PrimaryButton>
         }
       >
@@ -110,16 +113,10 @@ export default function RemedyScreen() {
         </Text>
         <Text className="mt-2 text-[15px] leading-6 text-muted">{result.summary}</Text>
         {severe ? (
-          <View className="mt-5 gap-3">
-            {result.clinics.length > 0 ? (
-              result.clinics.map((clinic) => <RemedyClinicCard key={clinic.id} clinic={clinic} />)
-            ) : (
-              <View className="rounded-2xl border border-border bg-surface px-4 py-4">
-                <Text className="text-[15px] leading-6 text-foreground">
-                  No verified clinic is listed yet. Use the Clinic tab, or call emergency services if you cannot wait.
-                </Text>
-              </View>
-            )}
+          <View className="mt-5 rounded-2xl border border-border bg-surface px-4 py-4">
+            <Text className="text-[15px] leading-6 text-foreground">
+              Nearby enrolled clinics are on the Clinic tab. Call emergency services if you cannot wait.
+            </Text>
           </View>
         ) : (
           <View className="mt-5">
@@ -133,7 +130,7 @@ export default function RemedyScreen() {
 
   return (
     <KeyboardFormShell
-      title="Remedial measure"
+        title="Feeling unwell"
       onBack={() => router.back()}
       footer={
         <PrimaryButton size="lg" onPress={() => void submit()} isDisabled={!ready || busy}>
