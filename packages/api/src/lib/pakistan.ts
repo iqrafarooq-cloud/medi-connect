@@ -39,13 +39,28 @@ export function isValidPakistanPhone(input: string): boolean {
   return normalizePakistanPhone(input) !== null;
 }
 
-/** Display stored +92XXXXXXXXXX as 03XX XXXXXXX */
+/** Display stored +92XXXXXXXXXX as 03XX-XXXXXXX */
 export function formatPakistanPhone(e164: string): string {
   const digits = e164.replace(/\D/g, "");
   if (digits.startsWith("92") && digits.length === 12) {
-    return `0${digits.slice(2, 5)} ${digits.slice(5)}`;
+    return `0${digits.slice(2, 5)}-${digits.slice(5)}`;
+  }
+  if (digits.startsWith("0") && digits.length === 11) {
+    return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  }
+  if (digits.length === 10 && digits.startsWith("3")) {
+    return `0${digits.slice(0, 3)}-${digits.slice(3)}`;
   }
   return e164;
+}
+
+/** Mask while typing: 03XX-XXXXXXX */
+export function maskPakistanPhoneInput(raw: string): string {
+  let digits = raw.replace(/\D/g, "").slice(0, 12);
+  if (digits.startsWith("92")) digits = `0${digits.slice(2)}`;
+  digits = digits.slice(0, 11);
+  if (digits.length <= 4) return digits;
+  return `${digits.slice(0, 4)}-${digits.slice(4)}`;
 }
 
 /** Mask CNIC while typing: xxxxx-xxxxxxx-x */

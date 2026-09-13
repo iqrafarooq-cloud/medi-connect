@@ -588,17 +588,9 @@ export default function EmergencyTriagePage() {
                   No active inbound cases
                 </h1>
                 <p className="max-w-xl text-sm text-white/85">
-                  Create a clinic intake case for phone, EMS radio, or walk-in arrivals.
+                  Create a clinic intake case for phone, EMS radio, or walk-in arrivals using New
+                  case below.
                 </p>
-                <Button
-                  size="lg"
-                  variant="secondary"
-                  className="h-10 bg-white px-5 font-semibold text-primary hover:bg-white/90"
-                  onClick={openCreateCase}
-                >
-                  <Plus className="size-4" />
-                  New inbound case
-                </Button>
               </div>
             )}
           </div>
@@ -1036,7 +1028,7 @@ export default function EmergencyTriagePage() {
       <Sheet open={caseSheetOpen} onOpenChange={setCaseSheetOpen}>
         <SheetContent side="right" className="w-full sm:max-w-md">
           <SheetHeader>
-            <SheetTitle>{editingCaseId ? "Edit inbound case" : "New inbound case"}</SheetTitle>
+            <SheetTitle>{editingCaseId ? "Edit case" : "New case"}</SheetTitle>
             <SheetDescription>
               Clinic intake for phone, EMS radio, or walk-in. Link a patient by CNIC when known.
             </SheetDescription>

@@ -42,6 +42,7 @@ import {
   PortalPatientRecordSkeleton,
 } from "@/components/portal/portal-loading";
 import { UploadRecordsDialog } from "@/components/portal/upload-records-dialog";
+import { formatPakistanPhone } from "@medi-connect/api/lib/pakistan";
 
 import { client } from "@/utils/orpc";
 
@@ -683,13 +684,15 @@ export default function PatientRecordPage() {
                 </p>
                 <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
                   <span>DOB {patient?.dateOfBirth ?? "—"}</span>
-                  {patient?.phone ? <span>Phone {patient.phone}</span> : null}
+                  {patient?.phone ? (
+                    <span>Phone {formatPakistanPhone(patient.phone)}</span>
+                  ) : null}
                   <span>
                     Emergency{" "}
                     {patient?.emergencyContactName
                       ? `${patient.emergencyContactName}${
                           patient.emergencyContactPhone
-                            ? ` · ${patient.emergencyContactPhone}`
+                            ? ` · ${formatPakistanPhone(patient.emergencyContactPhone)}`
                             : ""
                         }`
                       : "Not on file"}
@@ -726,10 +729,6 @@ export default function PatientRecordPage() {
               >
                 <Filter className="size-4" />
                 {filtersActive ? "Clear filters" : "Filter timeline"}
-              </Button>
-              <Button size="sm" type="button" onClick={openCreateEncounter}>
-                <Plus className="size-4" />
-                Add clinical encounter
               </Button>
             </div>
           </div>
@@ -817,9 +816,15 @@ export default function PatientRecordPage() {
                   Longitudinal encounter trajectory
                 </CardTitle>
               </div>
-              <span className="text-[11px] font-medium text-muted-foreground">
-                {filtered.length} of {encounters.length}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  {filtered.length} of {encounters.length}
+                </span>
+                <Button size="sm" type="button" className="h-8" onClick={openCreateEncounter}>
+                  <Plus className="size-3.5" />
+                  Add encounter
+                </Button>
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-1.5">
@@ -901,19 +906,14 @@ export default function PatientRecordPage() {
                 <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed bg-muted/30 px-4 py-5 text-center">
                   <p className="text-sm text-muted-foreground">
                     {encounters.length === 0
-                      ? "No encounters yet. Add one manually, or upload a clinical PDF — visit notes and lab panels appear here after ingest."
+                      ? "No encounters yet. Use Add encounter above, or upload a clinical PDF — visit notes and lab panels appear here after ingest."
                       : "No encounters match these filters."}
                   </p>
-                  {encounters.length === 0 ? (
-                    <Button size="sm" type="button" onClick={openCreateEncounter}>
-                      <Plus className="size-3.5" />
-                      Add encounter
-                    </Button>
-                  ) : (
+                  {encounters.length > 0 ? (
                     <Button variant="outline" size="sm" type="button" onClick={resetFilters}>
                       Show all {encounters.length} encounters
                     </Button>
-                  )}
+                  ) : null}
                 </div>
               ) : (
                 filtered.map((enc) => (
@@ -1242,7 +1242,7 @@ export default function PatientRecordPage() {
       <Sheet open={encounterOpen} onOpenChange={setEncounterOpen}>
         <SheetContent side="right" className="w-full sm:max-w-md">
           <SheetHeader>
-            <SheetTitle>{editingEncounterId ? "Edit encounter" : "Add clinical encounter"}</SheetTitle>
+            <SheetTitle>{editingEncounterId ? "Edit encounter" : "Add encounter"}</SheetTitle>
             <SheetDescription>
               Timeline entries for emergency, cardio, ambulatory, or lab visits.
             </SheetDescription>

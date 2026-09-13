@@ -4,5 +4,6 @@ export {
   isValidCnic,
   isValidPakistanPhone,
   maskCnicInput,
+  maskPakistanPhoneInput,
   parseIsoDateOfBirth,
 } from "@medi-connect/api/lib/pakistan";
