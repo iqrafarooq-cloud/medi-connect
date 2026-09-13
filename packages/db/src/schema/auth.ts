@@ -1,12 +1,16 @@
 import { relations } from "drizzle-orm";
 import { pgTable, text, timestamp, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
 
+export const USER_ROLES = ["clinic_owner", "patient"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
+  role: text("role").default("clinic_owner").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

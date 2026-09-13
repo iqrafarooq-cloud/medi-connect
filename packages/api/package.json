@@ -7,6 +7,9 @@
     },
     "./*": {
       "default": "./src/*.ts"
+    },
+    "./lib/pakistan": {
+      "default": "./src/lib/pakistan.ts"
     }
   },
   "scripts": {},
