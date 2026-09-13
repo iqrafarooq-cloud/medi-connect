@@ -7,6 +7,7 @@ import {
   extractedMedication,
   homeMonitoringReading,
 } from "@medi-connect/db/schema/clinical";
+import { patientFile, patientEncounter } from "@medi-connect/db/schema/patient";
 import { and, eq, ne } from "drizzle-orm";
 import { parse } from "csv-parse/sync";
 import { extractText } from "unpdf";
@@ -19,6 +20,164 @@ import {
   extractLabs,
   extractMedications,
 } from "../extract";
+
+/** Deterministic timeline row id for a clinical document (reingest-safe). */
+export function documentEncounterId(documentId: string) {
+  return `doc-encounter-${documentId}`;
+}
+
+const ENCOUNTER_DOC_TYPES = new Set([
+  "soap_note",
+  "specialist_consult",
+  "radiology_report",
+  "lab_panel",
+  "progress_note",
+  "eye_exam",
+  "other",
+]);
+
+function mapEncounterKind(
+  type: string,
+  specialty: string | null,
+  filename: string,
+  text: string,
+): "emergency" | "cardio" | "ambulatory" | "labs" {
+  if (type === "lab_panel") return "labs";
+  const hay = `${filename}\n${specialty ?? ""}\n${text.slice(0, 1000)}`.toLowerCase();
+  if (/\b(emerg|emergency department|\bed\b|trauma|ambulance|esi)\b/.test(hay)) {
+    return "emergency";
+  }
+  if (/\b(cardio|cardiology|cath|coronary|pci|heart failure|echo)\b/.test(hay)) {
+    return "cardio";
+  }
+  if (type === "specialist_consult" && specialty && /cardio|heart/i.test(specialty)) {
+    return "cardio";
+  }
+  return "ambulatory";
+}
+
+function buildEncounterSummary(text: string): string {
+  const match = text.match(
+    /(?:ASSESSMENT(?:\s*&\s*PLAN)?|IMPRESSION|PLAN|CHIEF COMPLAINT)[:\s]*([\s\S]{40,700})/i,
+  );
+  const raw = (match?.[1] ?? text).replace(/\s+/g, " ").trim();
+  if (!raw) return "Clinical document ingested from uploaded record.";
+  return raw.length > 480 ? `${raw.slice(0, 480)}…` : raw;
+}
+
+function encounterTitle(
+  type: string,
+  specialty: string | null,
+  filename: string,
+  providerName: string | null,
+): string {
+  if (specialty?.trim()) {
+    return providerName?.trim()
+      ? `${specialty.trim()} · ${providerName.trim()}`
+      : specialty.trim();
+  }
+  const labels: Record<string, string> = {
+    soap_note: "Primary care / SOAP note",
+    specialist_consult: "Specialist consultation",
+    radiology_report: "Imaging / radiology study",
+    lab_panel: "Laboratory panel",
+    progress_note: "Progress note",
+    eye_exam: "Eye examination",
+    other: "Clinical document",
+  };
+  return labels[type] ?? (filename.replace(/\.[^.]+$/, "") || "Clinical document");
+}
+
+async function upsertEncounterFromDocument(params: {
+  documentId: string;
+  patientId: string;
+  type: string;
+  specialty: string | null;
+  encounterDate: Date | null;
+  providerName: string | null;
+  filename: string;
+  text: string;
+}) {
+  if (!ENCOUNTER_DOC_TYPES.has(params.type)) return;
+
+  const db = createDb();
+  const docs = await db
+    .select({
+      patientFileId: clinicalDocument.patientFileId,
+    })
+    .from(clinicalDocument)
+    .where(eq(clinicalDocument.id, params.documentId))
+    .limit(1);
+  const patientFileId = docs[0]?.patientFileId;
+  if (!patientFileId) return;
+
+  const files = await db
+    .select({
+      uploadedByUserId: patientFile.uploadedByUserId,
+      uploadedByClinicId: patientFile.uploadedByClinicId,
+    })
+    .from(patientFile)
+    .where(eq(patientFile.id, patientFileId))
+    .limit(1);
+  const file = files[0];
+  if (!file) return;
+
+  const id = documentEncounterId(params.documentId);
+  const kind = mapEncounterKind(
+    params.type,
+    params.specialty,
+    params.filename,
+    params.text,
+  );
+  const occurredAt = params.encounterDate ?? new Date();
+  const title = encounterTitle(
+    params.type,
+    params.specialty,
+    params.filename,
+    params.providerName,
+  );
+  const facility = params.providerName?.trim() || "Uploaded clinical record";
+  const summary = buildEncounterSummary(params.text);
+  const values = {
+    id,
+    patientId: params.patientId,
+    clinicId: file.uploadedByClinicId,
+    createdByUserId: file.uploadedByUserId,
+    kind,
+    occurredAt,
+    title,
+    facility,
+    summary,
+    badge: { label: "From document", tone: "info" as const },
+    metrics: null,
+    links: [params.filename],
+    inbound: false,
+  };
+
+  const existing = await db
+    .select({ id: patientEncounter.id })
+    .from(patientEncounter)
+    .where(eq(patientEncounter.id, id))
+    .limit(1);
+
+  if (existing[0]) {
+    await db
+      .update(patientEncounter)
+      .set({
+        kind: values.kind,
+        occurredAt: values.occurredAt,
+        title: values.title,
+        facility: values.facility,
+        summary: values.summary,
+        badge: values.badge,
+        links: values.links,
+        clinicId: values.clinicId,
+      })
+      .where(eq(patientEncounter.id, id));
+  } else {
+    await db.insert(patientEncounter).values(values);
+  }
+}
 
 async function setStatus(
   documentId: string,
@@ -70,6 +229,9 @@ async function clearDerived(documentId: string) {
   await db
     .delete(homeMonitoringReading)
     .where(eq(homeMonitoringReading.sourceDocumentId, documentId));
+  await db
+    .delete(patientEncounter)
+    .where(eq(patientEncounter.id, documentEncounterId(documentId)));
 }
 
 async function reconcileAllergyFlags(patientId: string) {
@@ -323,6 +485,17 @@ async function ingestPdf(params: {
   );
 
   await setStatus(params.documentId, "ready", { ingestionError: null });
+
+  await upsertEncounterFromDocument({
+    documentId: params.documentId,
+    patientId: params.patientId,
+    type: meta.type,
+    specialty: meta.specialty,
+    encounterDate: parseMaybeDate(meta.encounterDate),
+    providerName: meta.providerName,
+    filename: params.filename,
+    text: fullText,
+  });
 
   // Mark allergies present on other docs but missing here (if this doc had allergy header pattern)
   if (/allerg/i.test(fullText) && allergies.length === 0) {

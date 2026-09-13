@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Stethoscope,
   Trash2,
+  Upload,
 } from "lucide-react";
 
 import { Badge } from "@medi-connect/ui/components/badge";
@@ -25,7 +26,6 @@ import { DateTimePicker } from "@medi-connect/ui/components/date-picker";
 import { Input } from "@medi-connect/ui/components/input";
 import { Label } from "@medi-connect/ui/components/label";
 import { Progress } from "@medi-connect/ui/components/progress";
-import { Separator } from "@medi-connect/ui/components/separator";
 import {
   Sheet,
   SheetContent,
@@ -41,8 +41,26 @@ import {
   PortalButtonSpinner,
   PortalPatientRecordSkeleton,
 } from "@/components/portal/portal-loading";
+import { UploadRecordsDialog } from "@/components/portal/upload-records-dialog";
 
 import { client } from "@/utils/orpc";
+
+async function queueChartIngest(
+  source: "encounter" | "lab",
+  id: string,
+  action: "upsert" | "remove" = "upsert",
+) {
+  try {
+    await fetch("/api/clinical/ingest-chart", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, source, id }),
+    });
+  } catch (error) {
+    console.error("[chart-ingest]", source, id, error);
+  }
+}
 
 type Patient = {
   id: string;
@@ -81,13 +99,6 @@ type ClinicalFlag = {
   tone: string;
   sortOrder: number;
   active: boolean;
-};
-
-type Consent = {
-  id: string;
-  emergencyOverride: boolean;
-  telemetrySharing: boolean;
-  researchOptIn: boolean;
 };
 
 type LabPoint = {
@@ -300,48 +311,6 @@ function Sparkline({
   );
 }
 
-function ConsentToggle({
-  label,
-  description,
-  active,
-  onChange,
-  activeLabel,
-  inactiveLabel,
-  disabled,
-}: {
-  label: string;
-  description: string;
-  active: boolean;
-  onChange: (next: boolean) => void;
-  activeLabel: string;
-  inactiveLabel: string;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-3 py-2">
-      <div className="min-w-0 space-y-0.5">
-        <p className="text-sm font-medium leading-snug">{label}</p>
-        <p className="text-xs leading-snug text-muted-foreground">{description}</p>
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={active}
-        disabled={disabled}
-        onClick={() => onChange(!active)}
-        className={cn(
-          "shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-60",
-          active
-            ? "bg-primary text-primary-foreground"
-            : "bg-muted text-muted-foreground hover:bg-muted/80",
-        )}
-      >
-        {active ? activeLabel : inactiveLabel}
-      </button>
-    </div>
-  );
-}
-
 function flagBadgeClass(tone: string) {
   if (tone === "critical") return "gap-1 px-2 py-0.5";
   if (tone === "warning")
@@ -356,7 +325,6 @@ export default function PatientRecordPage() {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [encounters, setEncounters] = useState<Encounter[]>([]);
   const [flags, setFlags] = useState<ClinicalFlag[]>([]);
-  const [consent, setConsent] = useState<Consent | null>(null);
   const [labSeries, setLabSeries] = useState<LabSeries[]>([]);
   const [labs, setLabs] = useState<LabPoint[]>([]);
   const [facilities, setFacilities] = useState<string[]>([]);
@@ -379,13 +347,13 @@ export default function PatientRecordPage() {
   const [labOpen, setLabOpen] = useState(false);
   const [editingLabId, setEditingLabId] = useState<string | null>(null);
   const [labForm, setLabForm] = useState<LabForm>(EMPTY_LAB);
+  const [uploadOpen, setUploadOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     const data = await client.patientRecord.get({ patientId });
     setPatient(data.patient as Patient);
     setEncounters(data.encounters as Encounter[]);
     setFlags(data.flags as ClinicalFlag[]);
-    setConsent(data.consent as Consent);
     setLabSeries(data.labSeries as LabSeries[]);
     setLabs(data.labs as LabPoint[]);
     setFacilities(data.facilities);
@@ -507,9 +475,11 @@ export default function PatientRecordPage() {
       };
       if (editingEncounterId) {
         await client.patientRecord.updateEncounter({ id: editingEncounterId, ...payload });
+        void queueChartIngest("encounter", editingEncounterId);
         toast.success("Encounter updated");
       } else {
-        await client.patientRecord.createEncounter(payload);
+        const created = await client.patientRecord.createEncounter(payload);
+        void queueChartIngest("encounter", created.id);
         toast.success("Encounter added");
       }
       setEncounterOpen(false);
@@ -525,6 +495,7 @@ export default function PatientRecordPage() {
     if (!confirm("Delete this encounter?")) return;
     try {
       await client.patientRecord.deleteEncounter({ id, patientId });
+      void queueChartIngest("encounter", id, "remove");
       toast.success("Encounter deleted");
       await refresh();
     } catch (error) {
@@ -631,9 +602,11 @@ export default function PatientRecordPage() {
       };
       if (editingLabId) {
         await client.patientRecord.updateLab({ id: editingLabId, ...payload });
+        void queueChartIngest("lab", editingLabId);
         toast.success("Lab reading updated");
       } else {
-        await client.patientRecord.createLab(payload);
+        const created = await client.patientRecord.createLab(payload);
+        void queueChartIngest("lab", created.id);
         toast.success("Lab reading added");
       }
       setLabOpen(false);
@@ -649,31 +622,11 @@ export default function PatientRecordPage() {
     if (!confirm("Delete this manual lab reading?")) return;
     try {
       await client.patientRecord.deleteLab({ id, patientId });
+      void queueChartIngest("lab", id, "remove");
       toast.success("Lab deleted");
       await refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not delete lab");
-    }
-  }
-
-  async function updateConsentField(
-    field: "emergencyOverride" | "telemetrySharing" | "researchOptIn",
-    value: boolean,
-  ) {
-    if (!consent) return;
-    const previous = consent;
-    setConsent({ ...consent, [field]: value });
-    try {
-      const updated = await client.patientRecord.updateConsent({
-        patientId,
-        [field]: value,
-      });
-      setConsent(updated as Consent);
-      const latestAudit = await client.patientRecord.listAudit({ patientId, limit: 12 });
-      setAudit(latestAudit as AuditRow[]);
-    } catch (error) {
-      setConsent(previous);
-      toast.error(error instanceof Error ? error.message : "Could not update consent");
     }
   }
 
@@ -746,6 +699,15 @@ export default function PatientRecordPage() {
             </div>
 
             <div className="flex flex-wrap gap-2 lg:justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                onClick={() => setUploadOpen(true)}
+              >
+                <Upload className="size-4" />
+                Upload records
+              </Button>
               <Button variant="outline" size="sm" type="button" onClick={() => void exportRecord()}>
                 <Download className="size-4" />
                 Export record
@@ -841,9 +803,6 @@ export default function PatientRecordPage() {
                 </>
               )}
             </div>
-            <Badge variant="secondary" className="w-fit bg-primary/10 text-[10px] text-primary">
-              {consent?.telemetrySharing ? "Sharing authorised" : "Sharing restricted"}
-            </Badge>
           </div>
         </div>
       </section>
@@ -942,7 +901,7 @@ export default function PatientRecordPage() {
                 <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed bg-muted/30 px-4 py-5 text-center">
                   <p className="text-sm text-muted-foreground">
                     {encounters.length === 0
-                      ? "No encounters yet. Add the first clinical encounter."
+                      ? "No encounters yet. Add one manually, or upload a clinical PDF — visit notes and lab panels appear here after ingest."
                       : "No encounters match these filters."}
                   </p>
                   {encounters.length === 0 ? (
@@ -1075,7 +1034,13 @@ export default function PatientRecordPage() {
                 <Activity className="size-4 text-primary" />
                 <CardTitle className="font-heading text-base">Parsed diagnostic biomarkers</CardTitle>
               </div>
-              <Button variant="outline" size="sm" className="h-7 text-xs" type="button" onClick={openCreateLab}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                type="button"
+                onClick={openCreateLab}
+              >
                 <Plus className="size-3.5" />
                 Add lab
               </Button>
@@ -1083,7 +1048,7 @@ export default function PatientRecordPage() {
             <CardContent className="space-y-2.5 px-4 pb-4 pt-0 sm:px-5">
               {labSeries.length === 0 ? (
                 <div className="rounded-lg border border-dashed bg-muted/30 px-3 py-4 text-center text-sm text-muted-foreground">
-                  No lab readings yet. Add a manual value or ingest a lab panel.
+                  No lab readings yet. Add a manual value, or use Upload records for a lab PDF.
                 </div>
               ) : (
                 <>
@@ -1240,61 +1205,27 @@ export default function PatientRecordPage() {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3 sm:px-5">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="size-4 text-primary" />
-                <CardTitle className="font-heading text-base">Consent &amp; data governance</CardTitle>
+                <CardTitle className="font-heading text-base">Access audit</CardTitle>
               </div>
-              <Badge variant="secondary" className="text-[10px]">
-                PDPA · NADRA
-              </Badge>
             </CardHeader>
             <CardContent className="px-4 pb-4 pt-0 sm:px-5">
-              <ConsentToggle
-                label="Emergency care override"
-                description="Unrestricted access for active pre-arrival triage"
-                active={consent?.emergencyOverride ?? true}
-                onChange={(v) => void updateConsentField("emergencyOverride", v)}
-                activeLabel="Active"
-                inactiveLabel="Off"
-                disabled={!consent}
-              />
-              <Separator />
-              <ConsentToggle
-                label="Diagnostic telemetry & cath sharing"
-                description="Live vitals and ECG share with receiving facility"
-                active={consent?.telemetrySharing ?? true}
-                onChange={(v) => void updateConsentField("telemetrySharing", v)}
-                activeLabel="Authorised"
-                inactiveLabel="Blocked"
-                disabled={!consent}
-              />
-              <Separator />
-              <ConsentToggle
-                label="Secondary research & bio-registry"
-                description="De-identified contributions to national research pools"
-                active={consent?.researchOptIn ?? false}
-                onChange={(v) => void updateConsentField("researchOptIn", v)}
-                activeLabel="Opted in"
-                inactiveLabel="Opted out"
-                disabled={!consent}
-              />
-
-              <div className="mt-2.5 rounded-lg bg-muted/50 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
-                <p className="font-semibold text-foreground">Access audit</p>
-                {audit.length === 0 ? (
-                  <p className="mt-1">No access events recorded yet.</p>
-                ) : (
-                  <ul className="mt-1 space-y-1">
-                    {audit.slice(0, 5).map((row) => (
-                      <li key={row.id}>
-                        <span className="text-foreground">
-                          {row.actorName ?? "Clinician"}
-                        </span>{" "}
-                        · {formatAuditAction(row.action)} ·{" "}
-                        {formatEncounterDate(row.createdAt)}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              {audit.length === 0 ? (
+                <p className="rounded-lg bg-muted/50 p-2.5 text-[11px] text-muted-foreground">
+                  No access events recorded yet.
+                </p>
+              ) : (
+                <ul className="space-y-1.5 rounded-lg bg-muted/50 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
+                  {audit.slice(0, 8).map((row) => (
+                    <li key={row.id}>
+                      <span className="text-foreground">
+                        {row.actorName ?? "Clinician"}
+                      </span>{" "}
+                      · {formatAuditAction(row.action)} ·{" "}
+                      {formatEncounterDate(row.createdAt)}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -1544,6 +1475,16 @@ export default function PatientRecordPage() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      <UploadRecordsDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        patientId={patientId}
+        description="Add PDF or CSV files. Document type is detected automatically; values are extracted and indexed for biomarkers and the clinical assistant."
+        onDocumentsChanged={async () => {
+          await refresh();
+        }}
+      />
     </div>
   );
 }
